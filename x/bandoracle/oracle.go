@@ -28,7 +28,7 @@ func (am AppModule) handleOraclePacket(
 		return channeltypes.Acknowledgement{},err
 	}
 
-	if modulePacketData.ResolveStatus == bandpacket.RESOLVE_STATUS_SUCCESS {
+	if modulePacketData.ResolveStatus == packet.RESOLVE_STATUS_SUCCESS {
 		calldata, found := am.keeper.GetCalldata(ctx, id)
 		if !found {
 			return channeltypes.Acknowledgement{},fmt.Errorf("calldata does not exist for id %d", id)
