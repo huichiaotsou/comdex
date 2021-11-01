@@ -72,14 +72,14 @@ func (am AppModule) handleOracleAcknowledgment(
 		if err = types.ModuleCdc.UnmarshalJSON(modulePacket.GetData(), &data); err != nil {
 			return nil, nil
 		}
-		requestID := types.CalldataKey(oracleAck.RequestID)
+		//requestID := types.CalldataKey(oracleAck.RequestID)
 
 		var callData types.Calldata
 		if err = obi.Decode(data.GetCalldata(), &callData); err != nil {
 			return nil, sdkerrors.Wrap(err,
 				"cannot decode the coinRates oracle acknowledgment packet")
 		}
-		am.keeper.SetCalldata(ctx, requestID)
+		am.keeper.SetCalldata(ctx, oracleAck.RequestID, callData)
 		return &sdk.Result{}, nil
 
 	}

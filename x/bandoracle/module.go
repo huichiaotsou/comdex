@@ -280,12 +280,24 @@ func (a AppModule) OnRecvPacket(
 }
 
 func (a AppModule) OnAcknowledgementPacket(
-	_ sdk.Context,
-	_ ibcchanneltypes.Packet,
-	_ []byte,
+	ctx sdk.Context,
+	packet ibcchanneltypes.Packet,
+	acknowledgement []byte,
 	_ sdk.AccAddress,
 ) (*sdk.Result, error) {
-	return nil, nil
+
+	var ack = ibcchanneltypes.Acknowledgement{}
+
+	if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
+		return nil, err
+	}
+
+
+	result, err := a.handleOracleAcknowledgment(ctx, ack ,packet)
+	 if err != nil {
+		 return nil,nil
+	}
+	return result, nil
 }
 
 func (a AppModule) OnTimeoutPacket(

@@ -41,5 +41,5 @@ func PriceForMarketKey(symbol string) []byte {
 }
 
 func KeyPrefix(port string) []byte {
-	return append(PriceForMarketKeyPrefix, []byte(port)...)
+	return append(PortKey, []byte(port)...)
 }
