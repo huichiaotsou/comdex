@@ -271,7 +271,7 @@ func (a AppModule) OnRecvPacket(
 	}
 
 	if ack.Success() {
-		if err := a.keeper.handleOraclePacket(ctx, res); err != nil {
+		if _, err := a.handleOraclePacket(ctx, packet); err != nil {
 			ack = ibcchanneltypes.NewErrorAcknowledgement(err.Error())
 		}
 	}
