@@ -12,7 +12,7 @@ func DefaultGenesisState() *GenesisState {
 	return NewGenesisState(
 		nil,
 		DefaultParams(),
-		"",
+		ModuleName,
 	)
 }
 

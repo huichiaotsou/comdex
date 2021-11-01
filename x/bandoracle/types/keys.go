@@ -21,7 +21,7 @@ var (
 	MarketForAssetKeyPrefix = []byte{0x22}
 	PriceForMarketKeyPrefix = []byte{0x23}
 
-	PortKey = []byte{0x24}
+	PortKey = KeyPrefix(ModuleName)
 )
 
 func CalldataKey(id uint64) []byte {
@@ -41,5 +41,5 @@ func PriceForMarketKey(symbol string) []byte {
 }
 
 func KeyPrefix(port string) []byte {
-	return append(PortKey, []byte(port)...)
+	return []byte(port)
 }
