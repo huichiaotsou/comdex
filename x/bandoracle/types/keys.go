@@ -40,6 +40,6 @@ func PriceForMarketKey(symbol string) []byte {
 	return append(PriceForMarketKeyPrefix, []byte(symbol)...)
 }
 
-func KeyPrefix(p string) []byte {
-	return []byte(p)
+func KeyPrefix(port string) []byte {
+	return append(PriceForMarketKeyPrefix, []byte(port)...)
 }
