@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/comdex-official/comdex/x/bandoracle"
 	"io"
 	"os"
 	"path/filepath"
@@ -86,9 +87,9 @@ import (
 	"github.com/comdex-official/comdex/x/asset"
 	assetkeeper "github.com/comdex-official/comdex/x/asset/keeper"
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
-	"github.com/comdex-official/comdex/x/oracle"
-	oraclekeeper "github.com/comdex-official/comdex/x/oracle/keeper"
-	oracletypes "github.com/comdex-official/comdex/x/oracle/types"
+
+	oraclekeeper "github.com/comdex-official/comdex/x/bandoracle/keeper"
+	oracletypes "github.com/comdex-official/comdex/x/bandoracle/types"
 	"github.com/comdex-official/comdex/x/vault"
 	vaultkeeper "github.com/comdex-official/comdex/x/vault/keeper"
 	vaulttypes "github.com/comdex-official/comdex/x/vault/types"
@@ -132,7 +133,7 @@ var (
 		asset.AppModuleBasic{},
 		liquidity.AppModuleBasic{},
 		asset.AppModuleBasic{},
-		oracle.AppModuleBasic{},
+		bandoracle.AppModuleBasic{},
 	)
 )
 
@@ -471,7 +472,7 @@ func New(
 		vault.NewAppModule(app.cdc, app.vaultKeeper),
 		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper, app.distrKeeper),
 		asset.NewAppModule(app.cdc, app.assetKeeper),
-		oracle.NewAppModule(app.cdc, app.oracleKeeper),
+		bandoracle.NewAppModule(app.cdc, app.oracleKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
