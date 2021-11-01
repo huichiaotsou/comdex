@@ -25,13 +25,13 @@ func (am AppModule) handleOraclePacket(
 
 	id, err := strconv.ParseUint(modulePacketData.ClientID, 10, 64)
 	if err != nil {
-		return channeltypes.Acknowledgement{},err
+		return channeltypes.Acknowledgement{}, err
 	}
 
 	if modulePacketData.ResolveStatus == packet.RESOLVE_STATUS_SUCCESS {
 		calldata, found := am.keeper.GetCalldata(ctx, id)
 		if !found {
-			return channeltypes.Acknowledgement{},fmt.Errorf("calldata does not exist for id %d", id)
+			return channeltypes.Acknowledgement{}, fmt.Errorf("calldata does not exist for id %d", id)
 		}
 
 		var result types.Result
@@ -72,24 +72,16 @@ func (am AppModule) handleOracleAcknowledgment(
 		if err = types.ModuleCdc.UnmarshalJSON(modulePacket.GetData(), &data); err != nil {
 			return nil, nil
 		}
-		requestID := types.OracleRequestID(oracleAck.RequestID)
+		requestID := types.CalldataKey(oracleAck.RequestID)
 
-		switch data.GetClientID() {
-
-		case types.CoinRatesClientIDKey:
-			var coinRatesData types.CoinRatesCallData
-			if err = obi.Decode(data.GetCalldata(), &coinRatesData); err != nil {
-				return nil, sdkerrors.Wrap(err,
-					"cannot decode the coinRates oracle acknowledgment packet")
-			}
-			am.keeper.SetLastCoinRatesID(ctx, requestID)
-			return &sdk.Result{}, nil
-			// this line is used by starport scaffolding # oracle/module/ack
-
-		default:
-			return nil, sdkerrors.Wrapf(sdkerrors.ErrJSONUnmarshal,
-				"oracle acknowledgment packet not found: %s", data.GetClientID())
+		var callData types.Calldata
+		if err = obi.Decode(data.GetCalldata(), &callData); err != nil {
+			return nil, sdkerrors.Wrap(err,
+				"cannot decode the coinRates oracle acknowledgment packet")
 		}
+		am.keeper.SetCalldata(ctx, requestID)
+		return &sdk.Result{}, nil
+
 	}
 	return nil, nil
 }
