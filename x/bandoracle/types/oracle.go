@@ -1,12 +1,21 @@
 package types
 
 import (
-"fmt"
+	"encoding/binary"
+	"fmt"
 )
 
 const (
 	MaxMarketSymbolLength = 8
 	MaxAssetNameLength = 16
+)
+
+type (
+	// OracleScriptID is the type-safe unique identifier type for oracle scripts.
+	OracleScriptID uint64
+
+	// OracleRequestID is the type-safe unique identifier type for data requests.
+	OracleRequestID int64
 )
 
 func (m *Market) Validate() error {
@@ -23,3 +32,8 @@ func (m *Market) Validate() error {
 	return nil
 }
 
+func int64ToBytes(num int64) []byte {
+	result := make([]byte, 8)
+	binary.BigEndian.PutUint64(result, uint64(num))
+	return result
+}

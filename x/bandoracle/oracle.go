@@ -1,14 +1,12 @@
 package bandoracle
 
 import (
-	"fmt"
 	"github.com/bandprotocol/bandchain-packet/obi"
 	"github.com/bandprotocol/bandchain-packet/packet"
 	"github.com/comdex-official/comdex/x/bandoracle/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	channeltypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
-	"strconv"
 )
 
 // handleOraclePacket handles the result of the received BandChain oracles
@@ -23,7 +21,7 @@ func (am AppModule) handleOraclePacket(
 		return ack, nil
 	}
 
-	id, err := strconv.ParseUint(modulePacketData.ClientID, 10, 64)
+	/*id, err := strconv.ParseUint(modulePacketData.ClientID, 10, 64)
 	if err != nil {
 		return channeltypes.Acknowledgement{}, err
 	}
@@ -38,10 +36,7 @@ func (am AppModule) handleOraclePacket(
 		if err := obi.Decode(modulePacketData.Result, &result); err != nil {
 			return channeltypes.Acknowledgement{}, err
 		}
-
-		for i := range calldata.Symbols {
-			am.keeper.SetPriceForMarket(ctx, calldata.Symbols[i], result.Rates[i])
-		}
+		am.keeper.SetPriceForMarket(ctx, calldata.Symbols, result.Rates)
 	}
 
 	am.keeper.DeleteCalldata(ctx, id)
@@ -49,7 +44,14 @@ func (am AppModule) handleOraclePacket(
 		types.ModuleCdc.MustMarshalJSON(
 			packet.NewOracleRequestPacketAcknowledgement(modulePacketData.RequestID),
 		),
-	)
+	)*/
+	var goldPriceResult types.GoldPriceResult
+	if err := obi.Decode(modulePacketData.Result, &goldPriceResult); err != nil {
+		ack = channeltypes.NewErrorAcknowledgement(err.Error())
+		return ack, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest,
+			"cannot decode the goldPrice received packet")
+	}
+	am.keeper.SetGoldPriceResult(ctx, types.OracleRequestID(modulePacketData.RequestID), goldPriceResult)
 	return ack, nil
 }
 
@@ -74,13 +76,32 @@ func (am AppModule) handleOracleAcknowledgment(
 		}
 		//requestID := types.CalldataKey(oracleAck.RequestID)
 
-		var callData types.Calldata
+		/*var callData types.Calldata
 		if err = obi.Decode(data.GetCalldata(), &callData); err != nil {
 			return nil, sdkerrors.Wrap(err,
 				"cannot decode the coinRates oracle acknowledgment packet")
 		}
 		am.keeper.SetCalldata(ctx, oracleAck.RequestID, callData)
-		return &sdk.Result{}, nil
+		return &sdk.Result{}, nil*/
+
+		requestID := types.OracleRequestID(oracleAck.RequestID)
+
+		switch data.GetClientID() {
+
+		case types.GoldPriceClientIDKey:
+			var goldPriceData types.GoldPriceCallData
+			if err = obi.Decode(data.GetCalldata(), &goldPriceData); err != nil {
+				return nil, sdkerrors.Wrap(err,
+					"cannot decode the goldPrice oracle acknowledgment packet")
+			}
+			am.keeper.SetLastGoldPriceID(ctx, requestID)
+			return &sdk.Result{}, nil
+			// this line is used by starport scaffolding # oracle/module/ack
+
+		default:
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrJSONUnmarshal,
+				"oracle acknowledgment packet not found: %s", data.GetClientID())
+		}
 
 	}
 	return nil, nil

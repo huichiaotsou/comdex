@@ -25,6 +25,10 @@ func NewHandler(k keeper.Keeper) sdk.Handler {
 		case *types.MsgRemoveMarketForAssetRequest:
 			res, err := server.MsgRemoveMarketForAsset(sdk.WrapSDKContext(ctx), msg)
 			return sdk.WrapServiceResult(ctx, res, err)
+		case *types.MsgGoldPriceData:
+			res, err := server.MsgGoldPrice(sdk.WrapSDKContext(ctx), msg)
+			return sdk.WrapServiceResult(ctx, res, err)
+
 		default:
 			return nil, errors.Wrapf(types.ErrorUnknownMsgType, "%T", msg)
 		}

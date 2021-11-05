@@ -1,0 +1,12 @@
+syntax = "proto3";
+package comdex.bandoracle.v1beta1;
+
+option go_package = "github.com/comdex-official/comdex/x/bandoracle/types";
+
+message GoldPriceCallData {
+  uint64 multiplier = 1;
+}
+
+message GoldPriceResult {
+  uint64 price = 1;
+}

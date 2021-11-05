@@ -18,6 +18,10 @@ const (
 	flagFeeLimit               = "fee-limit"
 	flagPrepareGas             = "prepare-gas"
 	flagExecuteGas             = "execute-gas"
+	flagChannel    = "channel"
+	flagSymbols    = "symbols"
+	flagMultiplier = "multiplier"
+	flagRequestkey = "request-key"
 )
 
 func GetLiquidationRatio(cmd *cobra.Command) (sdk.Dec, error) {

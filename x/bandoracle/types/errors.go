@@ -16,6 +16,8 @@ var (
 	ErrorInvalidSourcePort       = errors.Register(ModuleName, 109, "invalid source port")
 	ErrorInvalidSymbol           = errors.Register(ModuleName, 110, "invalid symbol")
 	ErrorInvalidSymbols          = errors.Register(ModuleName, 111, "invalid symbols")
+	ErrSample                    = errors.Register(ModuleName, 112, "sample error")
+
 )
 
 var (

@@ -18,6 +18,8 @@ func GetQueryCmd() *cobra.Command {
 		queryMarket(),
 		queryMarkets(),
 		queryParams(),
+		CmdGoldPriceResult(),
+		CmdLastGoldPriceID(),
 	)
 
 	return cmd
@@ -37,6 +39,7 @@ func GetTxCmd() *cobra.Command {
 		txUpdateMarket(),
 		txRemoveMarketForAsset(),
 		txFetchPrice(),
+		CmdRequestGoldPriceData(),
 	)
 
 	return cmd

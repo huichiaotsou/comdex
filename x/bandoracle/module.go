@@ -206,9 +206,9 @@ func (a AppModule) OnChanOpenTry(
 	_ ibcchanneltypes.Counterparty,
 	channelVersion, counterpartyVersion string,
 ) error {
-	if counterpartyVersion != a.keeper.IBCVersion(ctx) {
+	/*if counterpartyVersion != a.keeper.IBCVersion(ctx) {
 		return types.ErrorInvalidVersion
-	}
+	}*/
 
 	if err := ValidateAssetChannelParams(ctx, a.keeper, order, portID, channelID, channelVersion); err != nil {
 		return err

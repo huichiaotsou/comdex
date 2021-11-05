@@ -6,6 +6,7 @@ import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "comdex/bandoracle/v1beta1/oracle.proto";
 import "comdex/bandoracle/v1beta1/params.proto";
+import "comdex/bandoracle/v1beta1/gold_price.proto";
 
 option go_package = "github.com/comdex-official/comdex/x/bandoracle/types";
 option (gogoproto.equal_all)           = false;
@@ -45,6 +46,16 @@ message QueryParamsResponse {
     ];
 }
 
+message QueryGoldPriceRequest {int64 request_id = 1;}
+
+message QueryGoldPriceResponse {
+  GoldPriceResult result = 1;
+}
+
+message QueryLastGoldPriceIdRequest {}
+
+message QueryLastGoldPriceIdResponse {int64 request_id = 1;}
+
 service QueryService {
     rpc QueryMarkets(QueryMarketsRequest) returns (QueryMarketsResponse) {
         option (google.api.http).get = "/comdex/bandoracle/v1beta1/markets";
@@ -54,5 +65,15 @@ service QueryService {
     }
     rpc QueryParams(QueryParamsRequest) returns (QueryParamsResponse) {
         option (google.api.http).get = "/comdex/bandoracle/v1beta1/params";
+    }
+
+    // GoldPriceResult defines a rpc handler method for MsgGoldPriceData.
+    rpc GoldPriceResult(QueryGoldPriceRequest) returns (QueryGoldPriceResponse) {
+    		option (google.api.http).get = "/comdex/bandoracle/v1beta1/gold_price_result/{request_id}";
+    }
+
+    // LastGoldPriceId query the last GoldPrice result id
+    rpc LastGoldPriceId(QueryLastGoldPriceIdRequest) returns (QueryLastGoldPriceIdResponse) {
+    		option (google.api.http).get = "/comdex/bandoracle/v1beta1/last_gold_price_id";
     }
 }

@@ -85,22 +85,9 @@ func (k *msgServer) MsgFetchPrice(c context.Context, msg *types.MsgFetchPriceReq
 
 	var (
 		calldata = types.Calldata{
-			Symbols:    []string{},
 			Multiplier: k.OracleMultiplier(ctx),
 		}
 	)
-
-	for _, symbol := range msg.Symbols {
-		market, found := k.GetMarket(ctx, symbol)
-		if !found {
-			return nil, types.ErrorMarketDoesNotExist
-		}
-		if market.ScriptID != msg.ScriptID {
-			return nil, types.ErrorScriptIDMismatch
-		}
-
-		calldata.Symbols = append(calldata.Symbols, market.Symbol)
-	}
 
 	channel, found := k.channel.GetChannel(ctx, msg.SourcePort, msg.SourceChannel)
 	if !found {
@@ -129,8 +116,8 @@ func (k *msgServer) MsgFetchPrice(c context.Context, msg *types.MsgFetchPriceReq
 				ClientID:       fmt.Sprintf("%d", id),
 				OracleScriptID: msg.ScriptID,
 				Calldata:       bandobi.MustEncode(calldata),
-				AskCount:       k.OracleAskCount(ctx),
-				MinCount:       k.OracleMinCount(ctx),
+				AskCount:       5,
+				MinCount:       3,
 				FeeLimit:       msg.FeeLimit,
 				PrepareGas:     msg.PrepareGas,
 				ExecuteGas:     msg.ExecuteGas,

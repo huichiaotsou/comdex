@@ -180,6 +180,16 @@ func (k *Keeper) SetCalldata(ctx sdk.Context, id uint64, calldata types.Calldata
 	store.Set(key, value)
 }
 
+func (k *Keeper) SetCalldataGold(ctx sdk.Context, id uint64, calldata types.GoldPriceCallData) {
+	var (
+		store = k.Store(ctx)
+		key   = types.CalldataKey(id)
+		value = k.cdc.MustMarshal(&calldata)
+	)
+
+	store.Set(key, value)
+}
+
 func (k *Keeper) GetCalldata(ctx sdk.Context, id uint64) (calldata types.Calldata, found bool) {
 	var (
 		store = k.Store(ctx)

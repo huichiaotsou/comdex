@@ -92,3 +92,19 @@ func (q *queryServer) QueryParams(c context.Context, _ *types.QueryParamsRequest
 		Params: params,
 	}, nil
 }
+
+func (q *queryServer) GoldPriceResult(c context.Context, req *types.QueryGoldPriceRequest) (*types.QueryGoldPriceResponse, error) {
+	ctx := sdk.UnwrapSDKContext(c)
+	result, err := q.GetGoldPriceResult(ctx, types.OracleRequestID(req.RequestId))
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryGoldPriceResponse{Result: &result}, nil
+}
+
+// LastGoldPriceId returns the last GoldPrice request Id
+func (q *queryServer) LastGoldPriceId(c context.Context, req *types.QueryLastGoldPriceIdRequest) (*types.QueryLastGoldPriceIdResponse, error) {
+	ctx := sdk.UnwrapSDKContext(c)
+	id := q.GetLastGoldPriceID(ctx)
+	return &types.QueryLastGoldPriceIdResponse{RequestId: id}, nil
+}
