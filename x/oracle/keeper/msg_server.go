@@ -85,7 +85,6 @@ func (k *msgServer) MsgFetchPrice(c context.Context, msg *types.MsgFetchPriceReq
 
 	var (
 		calldata = types.Calldata{
-			Symbols:    []string{},
 			Multiplier: k.OracleMultiplier(ctx),
 		}
 	)
@@ -99,7 +98,6 @@ func (k *msgServer) MsgFetchPrice(c context.Context, msg *types.MsgFetchPriceReq
 			return nil, types.ErrorScriptIDMismatch
 		}
 
-		calldata.Symbols = append(calldata.Symbols, market.Symbol)
 	}
 
 	channel, found := k.channel.GetChannel(ctx, msg.SourcePort, msg.SourceChannel)

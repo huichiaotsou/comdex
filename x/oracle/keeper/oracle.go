@@ -216,7 +216,7 @@ func (k *Keeper) OnRecvPacket(ctx sdk.Context, res bandpacket.OracleResponsePack
 	}
 
 	if res.ResolveStatus == bandpacket.RESOLVE_STATUS_SUCCESS {
-		calldata, found := k.GetCalldata(ctx, id)
+		_, found := k.GetCalldata(ctx, id)
 		if !found {
 			return fmt.Errorf("calldata does not exist for id %d", id)
 		}
@@ -226,9 +226,7 @@ func (k *Keeper) OnRecvPacket(ctx sdk.Context, res bandpacket.OracleResponsePack
 			return err
 		}
 
-		for i := range calldata.Symbols {
-			k.SetPriceForMarket(ctx, calldata.Symbols[i], result.Rates[i])
-		}
+		k.SetPriceForMarket(ctx, "cGOLD", result.Rates)
 	}
 
 	k.DeleteCalldata(ctx, id)
