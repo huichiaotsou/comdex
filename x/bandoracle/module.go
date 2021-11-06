@@ -3,7 +3,6 @@ package bandoracle
 import (
 	"context"
 	"encoding/json"
-	bandpacket "github.com/bandprotocol/bandchain-packet/packet"
 	cli2 "github.com/comdex-official/comdex/x/bandoracle/client/cli"
 	"github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
@@ -262,13 +261,8 @@ func (a AppModule) OnRecvPacket(
 	_ sdk.AccAddress,
 ) ibcexported.Acknowledgement {
 	var (
-		res bandpacket.OracleResponsePacketData
 		ack = ibcchanneltypes.NewResultAcknowledgement([]byte{0x01})
 	)
-
-	if err := a.cdc.UnmarshalJSON(packet.GetData(), &res); err != nil {
-		ack = ibcchanneltypes.NewErrorAcknowledgement(err.Error())
-	}
 
 	if ack.Success() {
 		if _, err := a.handleOraclePacket(ctx, packet); err != nil {
@@ -287,11 +281,6 @@ func (a AppModule) OnAcknowledgementPacket(
 ) (*sdk.Result, error) {
 
 	var ack = ibcchanneltypes.Acknowledgement{}
-
-	if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
-		return nil, err
-	}
-
 
 	result, err := a.handleOracleAcknowledgment(ctx, ack ,packet)
 	 if err != nil {

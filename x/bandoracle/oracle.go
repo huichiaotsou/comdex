@@ -86,6 +86,11 @@ func (am AppModule) handleOracleAcknowledgment(
 
 		requestID := types.OracleRequestID(oracleAck.RequestID)
 
+		if requestID == 0 {
+			return nil, sdkerrors.Wrap(err,
+				"request id 0")
+		}
+
 		switch data.GetClientID() {
 
 		case types.GoldPriceClientIDKey:
@@ -102,6 +107,13 @@ func (am AppModule) handleOracleAcknowledgment(
 			return nil, sdkerrors.Wrapf(sdkerrors.ErrJSONUnmarshal,
 				"oracle acknowledgment packet not found: %s", data.GetClientID())
 		}
+
+	case *channeltypes.Acknowledgement_Error:
+		return nil, sdkerrors.Wrapf(sdkerrors.Error{},
+			"cannot decode the goldPrice oracle acknowledgment packet")
+	default:
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrJSONUnmarshal,
+			"oracle acknowledgment packet not found: %s")
 
 	}
 	return nil, nil
