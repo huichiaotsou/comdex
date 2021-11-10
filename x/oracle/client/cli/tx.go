@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func txAddMarket() *cobra.Command {
@@ -238,7 +237,7 @@ func txFetchPrice() *cobra.Command {
 
 	flags.AddTxFlagsToCmd(cmd)
 	cmd.Flags().String(flagPacketTimeoutHeight, "0-1000", "packet timeout block height")
-	cmd.Flags().Duration(flagPacketTimeoutTimestamp, 10*time.Minute, "packet timeout timestamp")
+	cmd.Flags().Uint64(flagPacketTimeoutTimestamp, 300, "packet timeout timestamp")
 	cmd.Flags().Bool(flagAbsoluteTimeouts, false, "timeout flags are used as absolute timeouts")
 	cmd.Flags().String(flagFeeLimit, "", "fee limit")
 	cmd.Flags().Uint64(flagPrepareGas, 0, "prepare gas")
