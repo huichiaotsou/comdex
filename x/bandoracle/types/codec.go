@@ -22,7 +22,9 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&MsgFetchPriceRequest{},
 		&MsgRemoveMarketForAssetRequest{},
 	)
-
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&MsgGoldPriceData{},
+	)
 	msgservice.RegisterMsgServiceDesc(registry, &_MsgService_serviceDesc)
 
 }

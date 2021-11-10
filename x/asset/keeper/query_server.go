@@ -44,7 +44,12 @@ func (q *queryServer) QueryAssets(c context.Context, req *types.QueryAssetsReque
 			if err := q.cdc.Unmarshal(value, &item); err != nil {
 				return false, err
 			}
+			price, found := q.Keeper.GetPriceForAsset(ctx,item.Id)
+			item.Price = price
 
+			if !found {
+				return false, status.Errorf(codes.NotFound, "price does not exist for id %d", item.Id)
+			}
 			if accumulate {
 				items = append(items, item)
 			}
@@ -75,6 +80,13 @@ func (q *queryServer) QueryAsset(c context.Context, req *types.QueryAssetRequest
 	item, found := q.GetAsset(ctx, req.Id)
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "asset does not exist for id %d", req.Id)
+	}
+
+	price, found := q.Keeper.GetPriceForAsset(ctx,req.Id)
+	item.Price = price
+
+	if !found {
+		return nil, status.Errorf(codes.NotFound, "price does not exist for id %d", req.Id)
 	}
 
 	return &types.QueryAssetResponse{
