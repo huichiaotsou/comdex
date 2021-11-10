@@ -16,7 +16,7 @@ func txAddMarket() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-market [symbol] [script-id] [asset]",
 		Short: "Add a market",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, err := client.GetClientTxContext(cmd)
 			if err != nil {
@@ -28,7 +28,7 @@ func txAddMarket() *cobra.Command {
 				return err
 			}
 
-			asset, err := strconv.ParseUint(args[0], 10, 64)
+			asset, err := strconv.ParseUint(args[2], 10, 64)
 			if err != nil {
 				return err
 			}
