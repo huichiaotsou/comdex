@@ -1,11 +1,6 @@
 package keeper
 
 import (
-	"fmt"
-	"strconv"
-
-	"github.com/bandprotocol/bandchain-packet/obi"
-	bandpacket "github.com/bandprotocol/bandchain-packet/packet"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	protobuftypes "github.com/gogo/protobuf/types"
 
@@ -207,32 +202,6 @@ func (k *Keeper) DeleteCalldata(ctx sdk.Context, id uint64) {
 	)
 
 	store.Delete(key)
-}
-
-func (k *Keeper) OnRecvPacket(ctx sdk.Context, res bandpacket.OracleResponsePacketData) error {
-	id, err := strconv.ParseUint(res.ClientID, 10, 64)
-	if err != nil {
-		return err
-	}
-
-	if res.ResolveStatus == bandpacket.RESOLVE_STATUS_SUCCESS {
-		calldata, found := k.GetCalldata(ctx, id)
-		if !found {
-			return fmt.Errorf("calldata does not exist for id %d", id)
-		}
-
-		var result types.Result
-		if err := obi.Decode(res.Result, &result); err != nil {
-			return err
-		}
-
-		for i := range calldata.Symbols {
-			k.SetPriceForMarket(ctx, calldata.Symbols[i], result.Rates[i])
-		}
-	}
-
-	k.DeleteCalldata(ctx, id)
-	return nil
 }
 
 func (k *Keeper) HasAsset(ctx sdk.Context, id uint64) bool {

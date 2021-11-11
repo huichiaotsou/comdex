@@ -8,6 +8,13 @@ const (
 	MaxMarketSymbolLength = 8
 	MaxAssetNameLength = 16
 )
+type (
+	// OracleScriptID is the type-safe unique identifier type for oracle scripts.
+	OracleScriptID uint64
+
+	// OracleRequestID is the type-safe unique identifier type for data requests.
+	OracleRequestID int64
+)
 
 func (m *Market) Validate() error {
 	if m.Symbol == "" {

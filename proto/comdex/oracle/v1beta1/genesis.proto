@@ -20,4 +20,6 @@ message GenesisState {
         (gogoproto.moretags) = "yaml:\"params\"",
         (gogoproto.nullable) = false
     ];
+
+        string port_id = 3;
 }

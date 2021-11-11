@@ -3,7 +3,6 @@ package types
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/errors"
-	ibcclienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
 	ibchost "github.com/cosmos/ibc-go/modules/core/24-host"
 )
 
@@ -12,6 +11,7 @@ var (
 	_ sdk.Msg = (*MsgUpdateMarketRequest)(nil)
 	_ sdk.Msg = (*MsgRemoveMarketForAssetRequest)(nil)
 	_ sdk.Msg = (*MsgFetchPriceRequest)(nil)
+	CoinRatesClientIDKey = "coin_rates_id"
 )
 
 func NewMsgAddMarketRequest(from sdk.AccAddress, symbol string, scriptID uint64, assetID uint64) *MsgAddMarketRequest {
@@ -123,49 +123,43 @@ func (m *MsgRemoveMarketForAssetRequest) GetSigners() []sdk.AccAddress {
 }
 
 func NewMsgFetchPriceRequest(
-	from sdk.AccAddress,
-	sourcePort, sourceChannel string,
-	timeoutHeight ibcclienttypes.Height,
-	timeoutTimestamp uint64,
-	symbols []string,
-	scriptID uint64,
+	creator string,
+	oracleScriptID OracleScriptID,
+	sourceChannel string,
+	calldata *Calldata,
+	askCount uint64,
+	minCount uint64,
 	feeLimit sdk.Coins,
-	prepareGas, executeGas uint64,
+	requestKey string,
+	prepareGas uint64,
+	executeGas uint64,
 ) *MsgFetchPriceRequest {
 	return &MsgFetchPriceRequest{
-		From:             from.String(),
-		SourcePort:       sourcePort,
-		SourceChannel:    sourceChannel,
-		TimeoutHeight:    timeoutHeight,
-		TimeoutTimestamp: timeoutTimestamp,
-		Symbols:          symbols,
-		ScriptID:         scriptID,
-		FeeLimit:         feeLimit,
-		PrepareGas:       prepareGas,
-		ExecuteGas:       executeGas,
+		ClientID:      CoinRatesClientIDKey ,
+		Creator:        creator,
+		OracleScriptID: uint64(oracleScriptID),
+		SourceChannel:  sourceChannel,
+		Calldata:       calldata,
+		AskCount:       askCount,
+		MinCount:       minCount,
+		FeeLimit:       feeLimit,
+		RequestKey:     requestKey,
+		PrepareGas:     prepareGas,
+		ExecuteGas:     executeGas,
 	}
 }
 
 func (m *MsgFetchPriceRequest) ValidateBasic() error {
-	if m.From == "" {
+	if m.Creator == "" {
 		return errors.Wrap(ErrorInvalidFrom, "from cannot be empty")
 	}
-	if _, err := sdk.AccAddressFromBech32(m.From); err != nil {
+	if _, err := sdk.AccAddressFromBech32(m.Creator); err != nil {
 		return errors.Wrapf(ErrorInvalidFrom, "%s", err)
-	}
-	if err := ibchost.PortIdentifierValidator(m.SourcePort); err != nil {
-		return errors.Wrapf(ErrorInvalidSourcePort, "%s", err)
 	}
 	if err := ibchost.ChannelIdentifierValidator(m.SourceChannel); err != nil {
 		return errors.Wrapf(ErrorInvalidSourceChannel, "%s", err)
 	}
-	if m.Symbols == nil {
-		return errors.Wrapf(ErrorInvalidSymbols, "symbols cannot be nil")
-	}
-	if len(m.Symbols) == 0 {
-		return errors.Wrapf(ErrorInvalidSymbols, "symbols cannot be empty")
-	}
-	if m.ScriptID == 0 {
+	if m.OracleScriptID == 0 {
 		return errors.Wrapf(ErrorInvalidScriptID, "script_id cannot be zero")
 	}
 
@@ -173,7 +167,7 @@ func (m *MsgFetchPriceRequest) ValidateBasic() error {
 }
 
 func (m *MsgFetchPriceRequest) GetSigners() []sdk.AccAddress {
-	from, err := sdk.AccAddressFromBech32(m.From)
+	from, err := sdk.AccAddressFromBech32(m.Creator)
 	if err != nil {
 		panic(err)
 	}

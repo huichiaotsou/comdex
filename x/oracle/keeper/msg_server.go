@@ -2,14 +2,15 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 	bandobi "github.com/bandprotocol/bandchain-packet/obi"
 	bandpacket "github.com/bandprotocol/bandchain-packet/packet"
+	"github.com/comdex-official/comdex/x/oracle/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
 	ibcchanneltypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
 	ibchost "github.com/cosmos/ibc-go/modules/core/24-host"
-
-	"github.com/comdex-official/comdex/x/oracle/types"
+	"time"
 )
 
 var (
@@ -85,65 +86,61 @@ func (k *msgServer) MsgFetchPrice(c context.Context, msg *types.MsgFetchPriceReq
 
 	var (
 		calldata = types.Calldata{
-			Symbols:    []string{},
 			Multiplier: k.OracleMultiplier(ctx),
 		}
 	)
 
-	for _, symbol := range msg.Symbols {
-		market, found := k.GetMarket(ctx, symbol)
-		if !found {
-			return nil, types.ErrorMarketDoesNotExist
-		}
-		if market.ScriptID != msg.ScriptID {
-			return nil, types.ErrorScriptIDMismatch
-		}
-
-		calldata.Symbols = append(calldata.Symbols, market.Symbol)
-	}
-
-	channel, found := k.channel.GetChannel(ctx, msg.SourcePort, msg.SourceChannel)
+	sourcePort := types.PortID
+	sourceChannelEnd, found := k.channel.GetChannel(ctx, sourcePort, msg.SourceChannel)
 	if !found {
-		return nil, ibcchanneltypes.ErrChannelNotFound
+		return nil, sdkerrors.Wrapf(
+			sdkerrors.ErrUnknownRequest,
+			"unknown channel %s port %s",
+			msg.SourceChannel,
+			sourcePort,
+		)
 	}
+	destinationPort := sourceChannelEnd.GetCounterparty().GetPortID()
+	destinationChannel := sourceChannelEnd.GetCounterparty().GetChannelID()
 
-	sequence, found := k.channel.GetNextSequenceSend(ctx, msg.SourcePort, msg.SourceChannel)
+	// get the next sequence
+	sequence, found := k.channel.GetNextSequenceSend(ctx, sourcePort, msg.SourceChannel)
 	if !found {
-		return nil, ibcchanneltypes.ErrSequenceSendNotFound
+		return nil, sdkerrors.Wrapf(
+			ibcchanneltypes.ErrSequenceSendNotFound,
+			"source port: %s, source channel: %s", sourcePort, msg.SourceChannel)
 	}
 
-	capability, found := k.scoped.GetCapability(ctx, ibchost.ChannelCapabilityPath(msg.SourcePort, msg.SourceChannel))
-	if !found {
-		return nil, ibcchanneltypes.ErrChannelCapabilityNotFound
+	channelCap, ok := k.scoped.GetCapability(ctx, ibchost.ChannelCapabilityPath(sourcePort, msg.SourceChannel))
+	if !ok {
+		return nil, sdkerrors.Wrap(ibcchanneltypes.ErrChannelCapabilityNotFound,
+			"module does not own channel capability")
 	}
 
-	var (
-		id     = k.GetCalldataID(ctx)
-		packet = ibcchanneltypes.Packet{
-			Sequence:           sequence,
-			SourcePort:         msg.SourcePort,
-			SourceChannel:      msg.SourceChannel,
-			DestinationPort:    channel.GetCounterparty().GetPortID(),
-			DestinationChannel: channel.GetCounterparty().GetChannelID(),
-			Data: bandpacket.OracleRequestPacketData{
-				ClientID:       fmt.Sprintf("%d", id),
-				OracleScriptID: msg.ScriptID,
-				Calldata:       bandobi.MustEncode(calldata),
-				AskCount:       k.OracleAskCount(ctx),
-				MinCount:       k.OracleMinCount(ctx),
-				FeeLimit:       msg.FeeLimit,
-				PrepareGas:     msg.PrepareGas,
-				ExecuteGas:     msg.ExecuteGas,
-			}.GetBytes(),
-			TimeoutHeight:    msg.TimeoutHeight,
-			TimeoutTimestamp: msg.TimeoutTimestamp,
-		}
+	encodedCalldata := bandobi.MustEncode(calldata)
+	packetData := bandpacket.NewOracleRequestPacketData(
+		msg.ClientID,
+		msg.OracleScriptID,
+		encodedCalldata,
+		1,
+		1,
+		msg.FeeLimit,
+		msg.PrepareGas,
+		msg.ExecuteGas,
 	)
 
-	k.SetCalldataID(ctx, id+1)
-	k.SetCalldata(ctx, id, calldata)
-
-	if err := k.channel.SendPacket(ctx, capability, packet); err != nil {
+	err := k.channel.SendPacket(ctx, channelCap, ibcchanneltypes.Packet{
+		Sequence: sequence,
+		SourcePort: sourcePort,
+		SourceChannel: msg.SourceChannel,
+		DestinationPort: destinationPort,
+		DestinationChannel: destinationChannel,
+		Data: packetData.GetBytes(),
+		TimeoutHeight: clienttypes.NewHeight(0, 0),
+		TimeoutTimestamp: uint64(ctx.BlockTime().UnixNano()+int64(10*time.Minute)),
+	},// Arbitrary timestamp timeout for now
+	)
+	if err != nil {
 		return nil, err
 	}
 

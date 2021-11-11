@@ -10,6 +10,8 @@ const (
 	QuerierRoute   = ModuleName
 	RouterKey      = ModuleName
 	StoreKey       = ModuleName
+	PortID 		   = ModuleName
+	Version        = "bandchain-1"
 )
 
 var (
@@ -20,6 +22,8 @@ var (
 
 	MarketForAssetKeyPrefix = []byte{0x22}
 	PriceForMarketKeyPrefix = []byte{0x23}
+	PortKey = KeyPrefix(ModuleName)
+
 )
 
 func CalldataKey(id uint64) []byte {
@@ -36,4 +40,8 @@ func MarketForAssetKey(id uint64) []byte {
 
 func PriceForMarketKey(symbol string) []byte {
 	return append(PriceForMarketKeyPrefix, []byte(symbol)...)
+}
+
+func KeyPrefix(port string) []byte {
+	return []byte(port)
 }
