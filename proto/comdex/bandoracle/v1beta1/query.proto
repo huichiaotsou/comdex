@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "comdex/bandoracle/v1beta1/fetch_price.proto";
 import "comdex/bandoracle/v1beta1/params.proto";
+import "comdex/bandoracle/v1beta1/oracle.proto";
 
 // this line is used by starport scaffolding # 1
 
@@ -28,6 +29,13 @@ service Query {
   option (google.api.http).get = "/comdex/bandoracle/v1beta1/last_fetch_price_id";
    }
 // this line is used by starport scaffolding # 2
+
+  rpc QueryMarkets(QueryMarketsRequest) returns (QueryMarketsResponse) {
+    option (google.api.http).get = "/comdex/bandoracle/v1beta1/markets";
+  }
+  rpc QueryMarket(QueryMarketRequest) returns (QueryMarketResponse) {
+    option (google.api.http).get = "/comdex/bandoracle/v1beta1/markets/{symbol}";
+  }
 }
 
 // QueryParamsRequest is request type for the Query/Params RPC method.
@@ -50,3 +58,29 @@ message QueryLastFetchPriceIdRequest {}
 message QueryLastFetchPriceIdResponse {int64 request_id = 1;}
 
 // this line is used by starport scaffolding # 3
+
+message QueryMarketsRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1
+  [ (gogoproto.moretags) = "yaml:\"pagination\"" ];
+}
+
+message QueryMarketsResponse {
+  repeated Market markets = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"markets\""
+  ];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2
+  [ (gogoproto.moretags) = "yaml:\"pagination\"" ];
+}
+
+message QueryMarketRequest {
+  string symbol = 1 [ (gogoproto.moretags) = "yaml:\"symbol\"" ];
+}
+
+message QueryMarketResponse {
+  Market market = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"market\""
+  ];
+}
+
