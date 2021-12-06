@@ -1,7 +1,7 @@
 package expected
 
 import (
-	"github.com/comdex-official/comdex/x/oracle/types"
+	"github.com/comdex-official/comdex/x/bandoracle/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 

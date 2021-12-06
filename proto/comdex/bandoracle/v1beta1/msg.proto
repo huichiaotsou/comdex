@@ -38,10 +38,3 @@ message MsgRemoveMarketForAssetRequest {
 
 message MsgRemoveMarketForAssetResponse {}
 
-
-service MsgService {
-    rpc MsgAddMarket(MsgAddMarketRequest) returns (MsgAddMarketResponse);
-    rpc MsgUpdateMarket(MsgUpdateMarketRequest) returns (MsgUpdateMarketResponse);
-    rpc MsgRemoveMarketForAsset(MsgRemoveMarketForAssetRequest)
-            returns (MsgRemoveMarketForAssetResponse);
-}

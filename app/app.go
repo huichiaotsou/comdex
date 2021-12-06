@@ -86,9 +86,6 @@ import (
 	"github.com/comdex-official/comdex/x/asset"
 	assetkeeper "github.com/comdex-official/comdex/x/asset/keeper"
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
-	"github.com/comdex-official/comdex/x/oracle"
-	oraclekeeper "github.com/comdex-official/comdex/x/oracle/keeper"
-	oracletypes "github.com/comdex-official/comdex/x/oracle/types"
 	"github.com/comdex-official/comdex/x/vault"
 	vaultkeeper "github.com/comdex-official/comdex/x/vault/keeper"
 	vaulttypes "github.com/comdex-official/comdex/x/vault/types"
@@ -135,7 +132,6 @@ var (
 		asset.AppModuleBasic{},
 		liquidity.AppModuleBasic{},
 		asset.AppModuleBasic{},
-		oracle.AppModuleBasic{},
 		bandoraclemodule.AppModuleBasic{},
 	)
 )
@@ -201,7 +197,6 @@ type App struct {
 	assetKeeper     assetkeeper.Keeper
 	vaultKeeper     vaultkeeper.Keeper
 	liquidityKeeper liquiditykeeper.Keeper
-	oracleKeeper    oraclekeeper.Keeper
 }
 
 // New returns a reference to an initialized App.
@@ -226,7 +221,7 @@ func New(
 			minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
 			govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
-			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey,bandoraclemoduletypes.StoreKey,
+			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, bandoraclemoduletypes.StoreKey,
 		)
 	)
 
@@ -267,7 +262,6 @@ func New(
 	app.paramsKeeper.Subspace(ibchost.ModuleName)
 	app.paramsKeeper.Subspace(vaulttypes.ModuleName)
 	app.paramsKeeper.Subspace(assettypes.ModuleName)
-	app.paramsKeeper.Subspace(oracletypes.ModuleName)
 	app.paramsKeeper.Subspace(bandoraclemoduletypes.ModuleName)
 
 	// set the BaseApp's parameter store
@@ -288,7 +282,6 @@ func New(
 	var (
 		scopedIBCKeeper      = app.capabilityKeeper.ScopeToModule(ibchost.ModuleName)
 		scopedTransferKeeper = app.capabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
-		scopedIBCOracleKeeper = app.capabilityKeeper.ScopeToModule(oracletypes.ModuleName)
 	)
 
 	// add keepers
@@ -393,14 +386,14 @@ func New(
 		app.cdc,
 		app.keys[assettypes.StoreKey],
 		app.GetSubspace(assettypes.ModuleName),
-		&app.oracleKeeper,
+		&app.BandoracleKeeper,
 	)
 	app.vaultKeeper = vaultkeeper.NewKeeper(
 		app.cdc,
 		app.keys[vaulttypes.StoreKey],
 		app.bankKeeper,
 		&app.assetKeeper,
-		&app.oracleKeeper,
+		&app.BandoracleKeeper,
 	)
 
 	app.liquidityKeeper = liquiditykeeper.NewKeeper(
@@ -412,15 +405,6 @@ func New(
 		app.distrKeeper,
 	)
 
-	app.oracleKeeper = *oraclekeeper.NewKeeper(
-		app.cdc,
-		app.keys[oracletypes.StoreKey],
-		app.GetSubspace(oracletypes.ModuleName),
-		app.ibcKeeper.ChannelKeeper,
-		&app.ibcKeeper.PortKeeper,
-		scopedIBCOracleKeeper,
-		app.assetKeeper,
-	)
 
 	scopedBandoracleKeeper := app.capabilityKeeper.ScopeToModule(bandoraclemoduletypes.ModuleName)
 	app.scopedBandoracleKeeper = scopedBandoracleKeeper
@@ -451,11 +435,9 @@ func New(
 		evidenceRouter = evidencetypes.NewRouter()
 		ibcRouter      = ibcporttypes.NewRouter()
 		transferModule = ibctransfer.NewAppModule(app.ibcTransferKeeper)
-		oracleModule = oracle.NewAppModule(app.cdc,app.oracleKeeper)
 	)
 
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
-	ibcRouter.AddRoute(oracletypes.ModuleName, oracleModule )
 	ibcRouter.AddRoute(bandoraclemoduletypes.ModuleName, bandoracleModule)
 	app.ibcKeeper.SetRouter(ibcRouter)
 
@@ -499,7 +481,6 @@ func New(
 		vault.NewAppModule(app.cdc, app.vaultKeeper),
 		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper, app.distrKeeper),
 		asset.NewAppModule(app.cdc, app.assetKeeper),
-		oracleModule,
 		bandoracleModule,
 	)
 
@@ -536,7 +517,6 @@ func New(
 		ibctransfertypes.ModuleName,
 		assettypes.ModuleName,
 		vaulttypes.ModuleName,
-		oracletypes.ModuleName,
 		bandoraclemoduletypes.ModuleName,
 	)
 
@@ -587,7 +567,6 @@ func New(
 
 	app.scopedIBCKeeper = scopedIBCKeeper
 	app.scopedIBCTransferKeeper = scopedTransferKeeper
-	app.scopedIBCOracleKeeper = scopedIBCOracleKeeper
 
 	return app
 }

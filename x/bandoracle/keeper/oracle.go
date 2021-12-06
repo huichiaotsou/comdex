@@ -9,7 +9,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	protobuftypes "github.com/gogo/protobuf/types"
 
-	"github.com/comdex-official/comdex/x/oracle/types"
+	"github.com/comdex-official/comdex/x/bandoracle/types"
 )
 
 func (k *Keeper) SetMarket(ctx sdk.Context, market types.Market) {
@@ -174,7 +174,7 @@ func (k *Keeper) GetCalldataID(ctx sdk.Context) uint64 {
 	return id.GetValue()
 }
 
-func (k *Keeper) SetCalldata(ctx sdk.Context, id uint64, calldata types.Calldata) {
+func (k *Keeper) SetCalldata(ctx sdk.Context, id uint64, calldata types.FetchPriceCallData) {
 	var (
 		store = k.Store(ctx)
 		key   = types.CalldataKey(id)
@@ -184,7 +184,7 @@ func (k *Keeper) SetCalldata(ctx sdk.Context, id uint64, calldata types.Calldata
 	store.Set(key, value)
 }
 
-func (k *Keeper) GetCalldata(ctx sdk.Context, id uint64) (calldata types.Calldata, found bool) {
+func (k *Keeper) GetCalldata(ctx sdk.Context, id uint64) (calldata types.FetchPriceCallData, found bool) {
 	var (
 		store = k.Store(ctx)
 		key   = types.CalldataKey(id)
@@ -220,7 +220,7 @@ func (k *Keeper) OnRecvPacket(ctx sdk.Context, res bandpacket.OracleResponsePack
 			return fmt.Errorf("calldata does not exist for id %d", id)
 		}
 
-		var result types.Result
+		var result types.FetchPriceResult
 		if err := obi.Decode(res.Result, &result); err != nil {
 			return err
 		}
@@ -232,15 +232,6 @@ func (k *Keeper) OnRecvPacket(ctx sdk.Context, res bandpacket.OracleResponsePack
 	k.DeleteCalldata(ctx, id)
 	return nil
 }
-
-/*func (k *Keeper) HasAsset(ctx sdk.Context, id uint64) bool {
-	var (
-		store = k.Store(ctx)
-		key   = assettypes.AssetKey(id)
-	)
-
-	return store.Has(key)
-}*/
 
 func (k *Keeper) GetPriceForAsset(ctx sdk.Context, id uint64) (uint64, bool) {
 	market, found := k.GetMarketForAsset(ctx, id)

@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 	"fmt"
+	assetkeeper "github.com/comdex-official/comdex/x/asset/keeper"
+	"github.com/comdex-official/comdex/x/bandoracle/expected"
 
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -20,14 +22,16 @@ type (
 		storeKey   sdk.StoreKey
 		memKey     sdk.StoreKey
 		paramstore paramtypes.Subspace
+		scoped      expected.ScopedKeeper
+		assetKeeper assetkeeper.Keeper
 	}
 )
 
-func (k Keeper) QueryMarkets(ctx context.Context, request *types.QueryMarketsRequest) (*types.QueryMarketsResponse, error) {
+func (k *Keeper) QueryMarkets(ctx context.Context, request *types.QueryMarketsRequest) (*types.QueryMarketsResponse, error) {
 	panic("implement me")
 }
 
-func (k Keeper) QueryMarket(ctx context.Context, request *types.QueryMarketRequest) (*types.QueryMarketResponse, error) {
+func (k *Keeper) QueryMarket(ctx context.Context, request *types.QueryMarketRequest) (*types.QueryMarketResponse, error) {
 	panic("implement me")
 }
 
@@ -63,4 +67,8 @@ func NewKeeper(
 
 func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", fmt.Sprintf("x/%s", types.ModuleName))
+}
+
+func (k *Keeper) Store(ctx sdk.Context) sdk.KVStore {
+	return ctx.KVStore(k.storeKey)
 }
