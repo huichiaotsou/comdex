@@ -29,6 +29,7 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 
 	comdex "github.com/comdex-official/comdex/app"
+	wasmconfig "github.com/comdex-official/comdex/x/wasm/config"
 )
 
 func NewRootCmd() (*cobra.Command, comdex.EncodingConfig) {
@@ -169,6 +170,7 @@ func appCreatorFunc(logger log.Logger, db tmdb.DB, tracer io.Writer, options ser
 		cast.ToUint(options.Get(server.FlagInvCheckPeriod)),
 		comdex.MakeEncodingConfig(),
 		options,
+		wasmconfig.GetConfig(options),
 		baseapp.SetPruning(pruningOptions),
 		baseapp.SetMinGasPrices(cast.ToString(options.Get(server.FlagMinGasPrices))),
 		baseapp.SetHaltHeight(cast.ToUint64(options.Get(server.FlagHaltHeight))),
@@ -190,13 +192,13 @@ func appExportFunc(logger log.Logger, db tmdb.DB, tracer io.Writer, height int64
 
 	var app *comdex.App
 	if height != -1 {
-		app = comdex.New(logger, db, tracer, false, map[int64]bool{}, "", cast.ToUint(options.Get(server.FlagInvCheckPeriod)), config, options)
+		app = comdex.New(logger, db, tracer, false, map[int64]bool{}, "", cast.ToUint(options.Get(server.FlagInvCheckPeriod)), config, options, wasmconfig.DefaultConfig())
 
 		if err := app.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		app = comdex.New(logger, db, tracer, true, map[int64]bool{}, "", cast.ToUint(options.Get(server.FlagInvCheckPeriod)), config, options)
+		app = comdex.New(logger, db, tracer, true, map[int64]bool{}, "", cast.ToUint(options.Get(server.FlagInvCheckPeriod)), config, options, wasmconfig.DefaultConfig())
 	}
 
 	return app.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)

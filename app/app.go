@@ -1,6 +1,11 @@
 package app
 
 import (
+	"github.com/comdex-official/comdex/x/wasm"
+	wasmconfig "github.com/comdex-official/comdex/x/wasm/config"
+	wasmkeeper "github.com/comdex-official/comdex/x/wasm/keeper"
+	wasmtypes "github.com/comdex-official/comdex/x/wasm/types"
+	"github.com/spf13/cast"
 	"io"
 	"os"
 	"path/filepath"
@@ -75,7 +80,6 @@ import (
 	"github.com/gravity-devs/liquidity/x/liquidity"
 	liquiditykeeper "github.com/gravity-devs/liquidity/x/liquidity/keeper"
 	liquiditytypes "github.com/gravity-devs/liquidity/x/liquidity/types"
-	"github.com/spf13/cast"
 	abcitypes "github.com/tendermint/tendermint/abci/types"
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
@@ -133,6 +137,7 @@ var (
 		liquidity.AppModuleBasic{},
 		asset.AppModuleBasic{},
 		oracle.AppModuleBasic{},
+		wasm.AppModuleBasic{},
 	)
 )
 
@@ -195,6 +200,8 @@ type App struct {
 	vaultKeeper     vaultkeeper.Keeper
 	liquidityKeeper liquiditykeeper.Keeper
 	oracleKeeper    oraclekeeper.Keeper
+	//wasm
+	WasmKeeper wasmkeeper.Keeper
 }
 
 // New returns a reference to an initialized App.
@@ -208,6 +215,7 @@ func New(
 	invCheckPeriod uint,
 	encoding EncodingConfig,
 	appOptions servertypes.AppOptions,
+	wasmConfig *wasmconfig.Config,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *App {
 	var (
@@ -219,6 +227,7 @@ func New(
 			govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
 			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey,
+			wasmtypes.StoreKey,
 		)
 	)
 
@@ -260,6 +269,7 @@ func New(
 	app.paramsKeeper.Subspace(vaulttypes.ModuleName)
 	app.paramsKeeper.Subspace(assettypes.ModuleName)
 	app.paramsKeeper.Subspace(oracletypes.ModuleName)
+	app.paramsKeeper.Subspace(wasmtypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	baseApp.SetParamStore(
@@ -441,6 +451,23 @@ func New(
 		app.scopedIBCKeeper,
 		app.assetKeeper,
 	)
+
+	app.WasmKeeper = wasmkeeper.NewKeeper(
+		app.cdc, keys[wasmtypes.StoreKey],
+		app.GetSubspace(wasmtypes.ModuleName),
+		app.accountKeeper, app.bankKeeper,
+		baseApp.MsgServiceRouter(),
+		app.GRPCQueryRouter(), wasmtypes.DefaultFeatures,
+		homePath, wasmConfig,
+	)
+	// register wasm msg parser & querier
+	app.WasmKeeper.RegisterMsgParsers(map[string]wasmtypes.WasmMsgParserInterface{
+		wasmtypes.WasmMsgParserRouteWasm: wasmkeeper.NewWasmMsgParser(),
+	}, wasmkeeper.NewStargateWasmMsgParser(app.cdc))
+	app.WasmKeeper.RegisterQueriers(map[string]wasmtypes.WasmQuerierInterface{
+		wasmtypes.WasmQueryRouteWasm: wasmkeeper.NewWasmQuerier(app.WasmKeeper),
+	}, wasmkeeper.NewStargateWasmQuerier(app.WasmKeeper))
+
 	/****  Module Options ****/
 
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
@@ -466,6 +493,7 @@ func New(
 		evidence.NewAppModule(app.evidenceKeeper),
 		ibc.NewAppModule(app.ibcKeeper),
 		params.NewAppModule(app.paramsKeeper),
+		wasm.NewAppModule(app.cdc, app.WasmKeeper, app.accountKeeper, app.bankKeeper, app.interfaceRegistry),
 		transferModule,
 		asset.NewAppModule(app.cdc, app.assetKeeper),
 		vault.NewAppModule(app.cdc, app.vaultKeeper),
@@ -498,6 +526,7 @@ func New(
 		stakingtypes.ModuleName,
 		slashingtypes.ModuleName,
 		govtypes.ModuleName,
+		wasmtypes.ModuleName,
 		minttypes.ModuleName,
 		crisistypes.ModuleName,
 		ibchost.ModuleName,
