@@ -202,3 +202,17 @@ func (q *queryServer) QueryVault(c context.Context, req *types.QueryVaultRequest
 		},
 	}, nil
 }
+
+func (q *queryServer) QueryCollateralizationRatio(c context.Context, Id uint64) (sdk.Dec, error) {
+	var (
+		ctx = sdk.UnwrapSDKContext(c)
+	)
+	vault, _ := q.GetVault(ctx, Id)
+
+	pair, _ := q.GetPair(ctx, vault.PairID)
+	assetIn, _ := q.GetAsset(ctx, pair.AssetIn)
+	assetOut, _ := q.GetAsset(ctx, pair.AssetOut)
+
+	collateralizationRatio, err := q.CalculateCollaterlizationRatio(ctx, vault.AmountIn, assetIn, vault.AmountOut, assetOut)
+	return collateralizationRatio, err
+}

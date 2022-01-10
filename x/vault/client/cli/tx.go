@@ -31,6 +31,7 @@ func GetTxCmd() *cobra.Command {
 		txDrawDebt(),
 		txRepayDebt(),
 		txClose(),
+		txCalculateCollateralizationRatio(),
 	)
 
 	return cmd
@@ -235,6 +236,35 @@ func txClose() *cobra.Command {
 			return tx.GenerateOrBroadcastTxCLI(ctx, cmd.Flags(), msg)
 		},
 	}
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func txCalculateCollateralizationRatio() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "calculate [id]",
+		Short: "Calculates collateralization Ratio for a specefic vault by ID",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			ctx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			_, err = strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			//msg := types.Calculate(ctx.FromAddress, id)
+			//if err := msg.ValidateBasic(); err != nil {
+			//	return err
+			//}
+			return tx.GenerateOrBroadcastTxCLI(ctx, cmd.Flags(), nil)
+		},
+	}
+
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
