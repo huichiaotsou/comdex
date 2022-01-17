@@ -25,7 +25,6 @@ func GetQueryCmd() *cobra.Command {
 		QueryAllVaults(),
 		QueryVault(),
 		QueryVaults(),
-		QueryCollateralizationRatio(),
 	)
 
 	return cmd
@@ -120,41 +119,6 @@ func QueryVaults() *cobra.Command {
 			res, err := queryClient.QueryVaults(cmd.Context(), &types.QueryVaultsRequest{
 				Owner:      args[0],
 				Pagination: pagination,
-			})
-
-			if err != nil {
-				return err
-			}
-			return ctx.PrintProto(res)
-		},
-	}
-
-	flags.AddQueryFlagsToCmd(cmd)
-	return cmd
-}
-
-func QueryCollateralizationRatio() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "calculate [id]",
-		Short: "Query Collateralization Ratio",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-
-			ctx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			id, err := strconv.ParseUint(args[0], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			queryClient := types.NewQueryServiceClient(ctx)
-
-
-			res, err := queryClient.QueryVault(cmd.Context(), &types.QueryVaultRequest{
-				Id: id,
 			})
 
 			if err != nil {

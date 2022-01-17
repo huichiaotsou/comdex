@@ -86,9 +86,6 @@ import (
 	"github.com/comdex-official/comdex/x/asset"
 	assetkeeper "github.com/comdex-official/comdex/x/asset/keeper"
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
-	"github.com/comdex-official/comdex/x/liquidation"
-	liquidationkeeper "github.com/comdex-official/comdex/x/liquidation/keeper"
-	liquidationtypes "github.com/comdex-official/comdex/x/liquidation/types"
 	"github.com/comdex-official/comdex/x/oracle"
 	oraclekeeper "github.com/comdex-official/comdex/x/oracle/keeper"
 	oracletypes "github.com/comdex-official/comdex/x/oracle/types"
@@ -136,7 +133,6 @@ var (
 		liquidity.AppModuleBasic{},
 		asset.AppModuleBasic{},
 		oracle.AppModuleBasic{},
-		liquidation.AppModuleBasic{},
 	)
 )
 
@@ -199,7 +195,6 @@ type App struct {
 	vaultKeeper     vaultkeeper.Keeper
 	liquidityKeeper liquiditykeeper.Keeper
 	oracleKeeper    oraclekeeper.Keeper
-	liquidationkeeper liquidationkeeper.Keeper
 }
 
 // New returns a reference to an initialized App.
@@ -223,7 +218,7 @@ func New(
 			minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
 			govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
-			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey, liquidationtypes.StoreKey,
+			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey,
 		)
 	)
 
@@ -265,7 +260,6 @@ func New(
 	app.paramsKeeper.Subspace(vaulttypes.ModuleName)
 	app.paramsKeeper.Subspace(assettypes.ModuleName)
 	app.paramsKeeper.Subspace(oracletypes.ModuleName)
-	app.paramsKeeper.Subspace(liquidationtypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	baseApp.SetParamStore(
@@ -447,16 +441,6 @@ func New(
 		app.scopedIBCKeeper,
 		app.assetKeeper,
 	)
-
-	app.liquidationkeeper = liquidationkeeper.NewKeeper(
-		app.cdc,
-		app.keys[liquidationtypes.StoreKey],
-		app.bankKeeper,
-		&app.assetKeeper,
-		&app.oracleKeeper,
-		app.GetSubspace(liquidationtypes.ModuleName),
-		)
-
 	/****  Module Options ****/
 
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
@@ -488,7 +472,6 @@ func New(
 		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper, app.distrKeeper),
 		asset.NewAppModule(app.cdc, app.assetKeeper),
 		oracle.NewAppModule(app.cdc, app.oracleKeeper),
-		liquidation.NewAppModule(app.cdc, app.liquidationkeeper, app.accountKeeper, app.bankKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -524,7 +507,6 @@ func New(
 		ibctransfertypes.ModuleName,
 		assettypes.ModuleName,
 		vaulttypes.ModuleName,
-		liquidationtypes.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
