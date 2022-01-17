@@ -1,10 +1,12 @@
 package app
 
 import (
+	bankwasm "github.com/comdex-official/comdex/custom/bank/wasm"
 	"github.com/comdex-official/comdex/x/wasm"
 	wasmconfig "github.com/comdex-official/comdex/x/wasm/config"
 	wasmkeeper "github.com/comdex-official/comdex/x/wasm/keeper"
 	wasmtypes "github.com/comdex-official/comdex/x/wasm/types"
+	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	"github.com/spf13/cast"
 	"io"
 	"os"
@@ -202,6 +204,8 @@ type App struct {
 	oracleKeeper    oraclekeeper.Keeper
 	//wasm
 	WasmKeeper wasmkeeper.Keeper
+	// Module configurator
+	configurator module.Configurator
 }
 
 // New returns a reference to an initialized App.
@@ -351,7 +355,7 @@ func New(
 		homePath,
 		app.BaseApp,
 	)
-
+	app.registerUpgradeHandlers()
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
 	app.stakingKeeper = *stakingKeeper.SetHooks(
@@ -462,9 +466,11 @@ func New(
 	)
 	// register wasm msg parser & querier
 	app.WasmKeeper.RegisterMsgParsers(map[string]wasmtypes.WasmMsgParserInterface{
+		wasmtypes.WasmMsgParserRouteBank: bankwasm.NewWasmMsgParser(),
 		wasmtypes.WasmMsgParserRouteWasm: wasmkeeper.NewWasmMsgParser(),
 	}, wasmkeeper.NewStargateWasmMsgParser(app.cdc))
 	app.WasmKeeper.RegisterQueriers(map[string]wasmtypes.WasmQuerierInterface{
+		wasmtypes.WasmQueryRouteBank: bankwasm.NewWasmQuerier(app.bankKeeper),
 		wasmtypes.WasmQueryRouteWasm: wasmkeeper.NewWasmQuerier(app.WasmKeeper),
 	}, wasmkeeper.NewStargateWasmQuerier(app.WasmKeeper))
 
@@ -536,12 +542,14 @@ func New(
 		ibctransfertypes.ModuleName,
 		assettypes.ModuleName,
 		vaulttypes.ModuleName,
+		oracletypes.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encoding.Amino)
-	app.mm.RegisterServices(module.NewConfigurator(app.cdc, app.MsgServiceRouter(), app.GRPCQueryRouter()))
-
+	//app.mm.RegisterServices(module.NewConfigurator(app.cdc, app.MsgServiceRouter(), app.GRPCQueryRouter()))
+	app.configurator = module.NewConfigurator(app.cdc, app.MsgServiceRouter(), app.GRPCQueryRouter())
+	app.mm.RegisterServices(app.configurator)
 	// initialize stores
 	app.MountKVStores(app.keys)
 	app.MountTransientStores(app.tkeys)
@@ -715,4 +723,48 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 		vaulttypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 		liquiditytypes.ModuleName:      {authtypes.Minter, authtypes.Burner},
 	}
+}
+
+func (app *App) registerUpgradeHandlers() {
+	app.upgradeKeeper.SetUpgradeHandler("v0.44", func(ctx sdk.Context, plan upgradetypes.Plan, _ module.VersionMap) (module.VersionMap, error) {
+		// 1st-time running in-store migrations, using 1 as fromVersion to
+		// avoid running InitGenesis.
+		fromVM := map[string]uint64{
+			"auth":         1,
+			"bank":         1,
+			"capability":   1,
+			"crisis":       1,
+			"distribution": 1,
+			"evidence":     1,
+			"gov":          1,
+			"mint":         1,
+			"params":       1,
+			"slashing":     1,
+			"staking":      1,
+			"upgrade":      1,
+			"vesting":      1,
+			"ibc":          1,
+			"genutil":      1,
+			"transfer":     1,
+			"asset":        1,
+			"oracle":       1,
+		}
+
+		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
+	})
+
+	upgradeInfo, err := app.upgradeKeeper.ReadUpgradeInfoFromDisk()
+	if err != nil {
+		panic(err)
+	}
+
+	if upgradeInfo.Name == "v0.44" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		storeUpgrades := storetypes.StoreUpgrades{
+			Added: []string{"authz", "feegrant", "wasm", "vault"},
+		}
+
+		// configure store loader that checks if version == upgradeHeight and applies store upgrades
+		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
+	}
+
 }
