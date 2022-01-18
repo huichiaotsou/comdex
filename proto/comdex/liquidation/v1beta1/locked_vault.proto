@@ -1,0 +1,21 @@
+syntax = "proto3";
+package comdex.liquidation.v1beta1;
+
+import "gogoproto/gogo.proto";
+
+option go_package            = "github.com/comdex-official/comdex/x/liquidation/types";
+option (gogoproto.equal_all) = false;
+option (gogoproto.goproto_getters_all) = false;
+
+message locked_vault {
+  uint64 locked_vault_id = 1
+  [ (gogoproto.customname) = "LockedVaultID", (gogoproto.moretags) = "yaml:\"id\"" ];
+
+  string admin     = 2 [ (gogoproto.moretags) = "yaml:\"owner\"" ];
+
+  string debt = 3 [
+    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Int",
+    (gogoproto.moretags)   = "yaml:\"debt\"",
+    (gogoproto.nullable)   = false
+  ];
+}
