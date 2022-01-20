@@ -745,9 +745,7 @@ func (app *App) registerUpgradeHandlers() {
 			"vesting":      vesting.AppModule{}.ConsensusVersion(),
 			"ibc":          ibc.AppModule{}.ConsensusVersion(),
 			"genutil":      genutil.AppModule{}.ConsensusVersion(),
-			"liquidity":    liquidity.AppModule{}.ConsensusVersion(),
-			"asset":        asset.AppModule{}.ConsensusVersion(),
-			"oracle":       oracle.AppModule{}.ConsensusVersion(),
+			"transfer":     ibctransfer.AppModule{}.ConsensusVersion(),
 		}
 
 		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
@@ -759,9 +757,7 @@ func (app *App) registerUpgradeHandlers() {
 	}
 
 	if upgradeInfo.Name == "v0.44" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
-		storeUpgrades := storetypes.StoreUpgrades{
-			Added: []string{"authz", "feegrant", "wasm", "vault"},
-		}
+		storeUpgrades := storetypes.StoreUpgrades{}
 
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
