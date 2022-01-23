@@ -726,26 +726,29 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 }
 
 func (app *App) registerUpgradeHandlers() {
-	app.upgradeKeeper.SetUpgradeHandler("v0.44", func(ctx sdk.Context, plan upgradetypes.Plan, _ module.VersionMap) (module.VersionMap, error) {
+	app.upgradeKeeper.SetUpgradeHandler("v0.1.0", func(ctx sdk.Context, plan upgradetypes.Plan, _ module.VersionMap) (module.VersionMap, error) {
 		// 1st-time running in-store migrations, using 1 as fromVersion to
 		// avoid running InitGenesis.
 		fromVM := map[string]uint64{
-			"auth":         auth.AppModule{}.ConsensusVersion(),
-			"bank":         bank.AppModule{}.ConsensusVersion(),
-			"capability":   capability.AppModule{}.ConsensusVersion(),
-			"crisis":       crisis.AppModule{}.ConsensusVersion(),
-			"distribution": distr.AppModule{}.ConsensusVersion(),
-			"evidence":     evidence.AppModule{}.ConsensusVersion(),
-			"gov":          gov.AppModule{}.ConsensusVersion(),
-			"mint":         mint.AppModule{}.ConsensusVersion(),
-			"params":       params.AppModule{}.ConsensusVersion(),
-			"slashing":     slashing.AppModule{}.ConsensusVersion(),
-			"staking":      staking.AppModule{}.ConsensusVersion(),
-			"upgrade":      upgrade.AppModule{}.ConsensusVersion(),
-			"vesting":      vesting.AppModule{}.ConsensusVersion(),
-			"ibc":          ibc.AppModule{}.ConsensusVersion(),
-			"genutil":      genutil.AppModule{}.ConsensusVersion(),
-			"transfer":     ibctransfer.AppModule{}.ConsensusVersion(),
+			"auth":                      auth.AppModule{}.ConsensusVersion(),
+			"bank":                      bank.AppModule{}.ConsensusVersion(),
+			"capability":                capability.AppModule{}.ConsensusVersion(),
+			"crisis":                    crisis.AppModule{}.ConsensusVersion(),
+			"distribution":              distr.AppModule{}.ConsensusVersion(),
+			"evidence":                  evidence.AppModule{}.ConsensusVersion(),
+			"gov":                       gov.AppModule{}.ConsensusVersion(),
+			"mint":                      mint.AppModule{}.ConsensusVersion(),
+			"params":                    params.AppModule{}.ConsensusVersion(),
+			"slashing":                  slashing.AppModule{}.ConsensusVersion(),
+			"staking":                   staking.AppModule{}.ConsensusVersion(),
+			"upgrade":                   upgrade.AppModule{}.ConsensusVersion(),
+			"vesting":                   vesting.AppModule{}.ConsensusVersion(),
+			"ibc":                       ibc.AppModule{}.ConsensusVersion(),
+			genutiltypes.ModuleName:     genutil.AppModule{}.ConsensusVersion(),
+			ibctransfertypes.ModuleName: ibctransfer.AppModule{}.ConsensusVersion(),
+			assettypes.ModuleName:       asset.AppModule{}.ConsensusVersion(),
+			oracletypes.ModuleName:      oracle.AppModule{}.ConsensusVersion(),
+			vaulttypes.ModuleName:       vault.AppModule{}.ConsensusVersion(),
 		}
 
 		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
@@ -756,7 +759,7 @@ func (app *App) registerUpgradeHandlers() {
 		panic(err)
 	}
 
-	if upgradeInfo.Name == "v0.44" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+	if upgradeInfo.Name == "v0.1.0" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		storeUpgrades := storetypes.StoreUpgrades{
 			Added: []string{wasmtypes.ModuleName},
 		}
