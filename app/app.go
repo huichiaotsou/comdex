@@ -31,6 +31,7 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -78,6 +79,7 @@ import (
 	ibcclient "github.com/cosmos/ibc-go/modules/core/02-client"
 	ibcporttypes "github.com/cosmos/ibc-go/modules/core/05-port/types"
 	ibchost "github.com/cosmos/ibc-go/modules/core/24-host"
+	ibctypes "github.com/cosmos/ibc-go/modules/core/24-host"
 	ibckeeper "github.com/cosmos/ibc-go/modules/core/keeper"
 	"github.com/gravity-devs/liquidity/x/liquidity"
 	liquiditykeeper "github.com/gravity-devs/liquidity/x/liquidity/keeper"
@@ -616,6 +618,7 @@ func (a *App) InitChainer(ctx sdk.Context, req abcitypes.RequestInitChain) abcit
 	if err := tmjson.Unmarshal(req.AppStateBytes, &state); err != nil {
 		panic(err)
 	}
+	a.upgradeKeeper.SetModuleVersionMap(ctx, a.mm.GetVersionMap())
 	return a.mm.InitGenesis(ctx, a.cdc, state)
 }
 
@@ -730,26 +733,28 @@ func (app *App) registerUpgradeHandlers() {
 		// 1st-time running in-store migrations, using 1 as fromVersion to
 		// avoid running InitGenesis.
 		fromVM := map[string]uint64{
-			"auth":                      auth.AppModule{}.ConsensusVersion(),
-			"bank":                      bank.AppModule{}.ConsensusVersion(),
-			"capability":                capability.AppModule{}.ConsensusVersion(),
-			"crisis":                    crisis.AppModule{}.ConsensusVersion(),
-			"distribution":              distr.AppModule{}.ConsensusVersion(),
-			"evidence":                  evidence.AppModule{}.ConsensusVersion(),
-			"gov":                       gov.AppModule{}.ConsensusVersion(),
-			"mint":                      mint.AppModule{}.ConsensusVersion(),
-			"params":                    params.AppModule{}.ConsensusVersion(),
-			"slashing":                  slashing.AppModule{}.ConsensusVersion(),
-			"staking":                   staking.AppModule{}.ConsensusVersion(),
-			"upgrade":                   upgrade.AppModule{}.ConsensusVersion(),
-			"vesting":                   vesting.AppModule{}.ConsensusVersion(),
-			"ibc":                       ibc.AppModule{}.ConsensusVersion(),
+			authtypes.ModuleName:        auth.AppModule{}.ConsensusVersion(),
+			banktypes.ModuleName:        bank.AppModule{}.ConsensusVersion(),
+			capabilitytypes.ModuleName:  capability.AppModule{}.ConsensusVersion(),
+			crisistypes.ModuleName:      crisis.AppModule{}.ConsensusVersion(),
+			distrtypes.ModuleName:       distr.AppModule{}.ConsensusVersion(),
+			evidencetypes.ModuleName:    evidence.AppModule{}.ConsensusVersion(),
+			govtypes.ModuleName:         gov.AppModule{}.ConsensusVersion(),
+			minttypes.ModuleName:        mint.AppModule{}.ConsensusVersion(),
+			paramstypes.ModuleName:      params.AppModule{}.ConsensusVersion(),
+			slashingtypes.ModuleName:    slashing.AppModule{}.ConsensusVersion(),
+			stakingtypes.ModuleName:     staking.AppModule{}.ConsensusVersion(),
+			upgradetypes.ModuleName:     upgrade.AppModule{}.ConsensusVersion(),
+			vestingtypes.ModuleName:     vesting.AppModule{}.ConsensusVersion(),
+			ibctypes.ModuleName:         ibc.AppModule{}.ConsensusVersion(),
 			genutiltypes.ModuleName:     genutil.AppModule{}.ConsensusVersion(),
 			ibctransfertypes.ModuleName: ibctransfer.AppModule{}.ConsensusVersion(),
 			assettypes.ModuleName:       asset.AppModule{}.ConsensusVersion(),
+			oracletypes.ModuleName:      oracle.AppModule{}.ConsensusVersion(),
 			vaulttypes.ModuleName:       vault.AppModule{}.ConsensusVersion(),
 		}
-
+		//TODO: resetting initGenesis of oracle module - temporary changes, need to remove in next upgrade
+		app.mm.Modules[oracletypes.ModuleName].InitGenesis(ctx, app.cdc, app.cdc.MustMarshalJSON(oracletypes.DefaultGenesisState()))
 		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
 	})
 
@@ -757,10 +762,9 @@ func (app *App) registerUpgradeHandlers() {
 	if err != nil {
 		panic(err)
 	}
-
 	if upgradeInfo.Name == "v0.1.0" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		storeUpgrades := storetypes.StoreUpgrades{
-			Added: []string{wasmtypes.ModuleName, oracletypes.ModuleName},
+			Added: []string{wasmtypes.ModuleName},
 		}
 
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
