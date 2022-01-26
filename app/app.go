@@ -753,8 +753,6 @@ func (app *App) registerUpgradeHandlers() {
 			oracletypes.ModuleName:      oracle.AppModule{}.ConsensusVersion(),
 			vaulttypes.ModuleName:       vault.AppModule{}.ConsensusVersion(),
 		}
-		//TODO: resetting initGenesis of oracle module - temporary changes, need to remove in next upgrade
-		app.mm.Modules[oracletypes.ModuleName].InitGenesis(ctx, app.cdc, app.cdc.MustMarshalJSON(oracletypes.DefaultGenesisState()))
 		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
 	})
 
