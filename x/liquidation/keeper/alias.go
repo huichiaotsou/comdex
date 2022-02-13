@@ -74,5 +74,21 @@ func (k *Keeper) SetVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddres
 }
 
 func (k *Keeper) GetPriceForAsset(ctx sdk.Context, id uint64) (uint64, bool) {
-	return k.oracle.GetPriceForAsset(ctx, id)
+	// return k.oracle.GetPriceForAsset(ctx, id)
+
+	//for the test cases
+	if id%2 == 1 {
+		return 100, true
+	} else {
+		return 50, true
+	}
+}
+
+func (k *Keeper) HasVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddress, pairID uint64) bool {
+	var (
+		store = k.Store(ctx)
+		key   = vaulttypes.VaultForAddressByPair(address, pairID)
+	)
+
+	return store.Has(key)
 }

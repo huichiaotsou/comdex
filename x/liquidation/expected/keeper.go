@@ -37,6 +37,7 @@ type VaultKeeper interface {
 	SetID(ctx sdk.Context, id uint64)
 	SetVault(ctx sdk.Context, vault vaulttypes.Vault)
 	SetVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddress, pairID uint64, id uint64)
+	HasVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddress, pairID uint64) bool
 }
 
 type OracleKeeper interface {
