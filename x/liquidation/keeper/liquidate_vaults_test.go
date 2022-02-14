@@ -66,6 +66,7 @@ func TestVaultTestSuite(t *testing.T) {
 }
 
 func (suite *LiquidateVaultTestSuite) TestLockedVault_SetGet() {
+	suite.SetupTest()
 	locked_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
@@ -97,12 +98,14 @@ func (suite *LiquidateVaultTestSuite) TestLockedVault_SetGet() {
 }
 
 func (suite *LiquidateVaultTestSuite) TestLockedVaultID_SetGet() {
+	suite.SetupTest()
 	suite.keeper.SetLockedVaultID(suite.ctx, types.DefaultIndex)
 	id := suite.keeper.GetLockedVaultID(suite.ctx)
 	suite.Equal(types.DefaultIndex, id)
 }
 
 func (suite *LiquidateVaultTestSuite) TestGetLockedVaults() {
+	suite.SetupTest()
 	locked_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
@@ -129,6 +132,7 @@ func (suite *LiquidateVaultTestSuite) TestGetLockedVaults() {
 }
 
 func (suite *LiquidateVaultTestSuite) TestGetLockedVault() {
+	suite.SetupTest()
 	locked_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
@@ -152,6 +156,7 @@ func (suite *LiquidateVaultTestSuite) TestGetLockedVault() {
 }
 
 func (suite *LiquidateVaultTestSuite) TestDeleteLockedVault() {
+	suite.SetupTest()
 	locked_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
@@ -186,6 +191,7 @@ func (suite *LiquidateVaultTestSuite) TestDeleteLockedVault() {
 // 	return nil
 // }
 func (suite *LiquidateVaultTestSuite) TestSetFlagIsAuction_InProgressComplete() {
+	suite.SetupTest()
 	//define dummy locked_vault
 	locked_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
@@ -233,8 +239,9 @@ func (suite *LiquidateVaultTestSuite) TestSetFlagIsAuction_InProgressComplete() 
 }
 
 func (suite *LiquidateVaultTestSuite) TestCreateLockedVault() {
+	suite.SetupTest()
 	vault := types2.Vault{
-		ID:        types.DefaultIndex,
+		ID:        1,
 		PairID:    1,
 		Owner:     "abc",
 		AmountIn:  sdk.NewInt(1000000),
@@ -242,11 +249,12 @@ func (suite *LiquidateVaultTestSuite) TestCreateLockedVault() {
 	}
 
 	locked_vaultId := suite.keeper.GetLockedVaultID(suite.ctx)
+	suite.keeper.SetLockedVaultID(suite.ctx, locked_vaultId+1)
 
-	err := suite.keeper.CreateLockedVault(suite.ctx, vault, sdk.MustNewDecFromStr("0.5"))
+	err := suite.keeper.CreateLockedVault(suite.ctx, vault, sdk.MustNewDecFromStr("1.0"))
 	suite.Equal(err, nil)
 
-	locked_vault, found := suite.keeper.GetLockedVault(suite.ctx, locked_vaultId)
+	locked_vault, found := suite.keeper.GetLockedVault(suite.ctx, locked_vaultId+1)
 	suite.Equal(found, true)
 
 	dummy_vault := types1.LockedVault{
@@ -267,11 +275,12 @@ func (suite *LiquidateVaultTestSuite) TestCreateLockedVault() {
 	}
 	suite.Equal(locked_vault, dummy_vault)
 
-	suite.Equal(suite.keeper.GetLockedVaultID(suite.ctx), locked_vaultId+1)
+	suite.Equal(suite.keeper.GetLockedVaultID(suite.ctx), locked_vaultId+2)
 
 }
 
 func (suite *LiquidateVaultTestSuite) TestLiquidateVaults() {
+	suite.SetupTest()
 	assetin := types3.Asset{
 		Id:       1,
 		Name:     "GOLD",
@@ -283,7 +292,7 @@ func (suite *LiquidateVaultTestSuite) TestLiquidateVaults() {
 		Id:       2,
 		Name:     "SILVER",
 		Denom:    "ucSILVER",
-		Decimals: 1000000,
+		Decimals: 500000,
 	}
 
 	suite.assetKeeper.SetAsset(suite.ctx, assetin)
@@ -309,6 +318,7 @@ func (suite *LiquidateVaultTestSuite) TestLiquidateVaults() {
 	suite.vaultKeeper.SetVault(suite.ctx, vault)
 
 	lockedvaultId := suite.keeper.GetLockedVaultID(suite.ctx)
+
 	err := suite.keeper.LiquidateVaults(suite.ctx)
 	suite.Equal(err, nil)
 
@@ -316,10 +326,12 @@ func (suite *LiquidateVaultTestSuite) TestLiquidateVaults() {
 	suite.Equal(found, true)
 
 	crAtLiquidation := locked_vault1.CrAtLiquidation
-	suite.Equal(sdk.MustNewDecFromStr("1.5"), crAtLiquidation)
+	suite.Equal(sdk.MustNewDecFromStr("1.0"), crAtLiquidation)
 
 	_, found = suite.vaultKeeper.GetVault(suite.ctx, 1)
 	suite.Equal(found, false)
+
+	suite.SetupTest()
 
 	assetin = types3.Asset{
 		Id:       3,
@@ -370,6 +382,7 @@ func (suite *LiquidateVaultTestSuite) TestLiquidateVaults() {
 }
 
 func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
+	suite.SetupTest()
 	err := suite.keeper.UnliquidateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
 
@@ -377,11 +390,11 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
 		PairId:                       1,
-		Owner:                        "abc",
+		Owner:                        "comdex1pwu5sjk2lje94",
 		AmountIn:                     sdk.NewInt(1000000),
 		AmountOut:                    sdk.NewInt(1000000),
 		Initiator:                    types1.ModuleName,
-		IsAuctionComplete:            false,
+		IsAuctionComplete:            true,
 		IsAuctionInProgress:          true,
 		CrAtLiquidation:              sdk.NewDec(1.0),
 		CurrentCollaterlisationRatio: sdk.MustNewDecFromStr("1.6"),
@@ -391,7 +404,7 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	}
 
 	suite.keeper.SetLockedVault(suite.ctx, dummy_vault)
-	suite.keeper.SetLockedVaultID(suite.ctx, 2)
+	suite.keeper.SetLockedVaultID(suite.ctx, 1)
 
 	vault_id := suite.keeper.GetVaultID(suite.ctx)
 	err = suite.keeper.UnliquidateLockedVaults(suite.ctx)
@@ -415,16 +428,18 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	_, found := suite.keeper.GetLockedVault(suite.ctx, types.DefaultIndex)
 	suite.False(found)
 
-	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault.Owner), 1)
+	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault.Owner), dummy_vault.PairId)
 	suite.True(found)
 
 	//tests for the false case
+	suite.SetupTest()
+
 	locked_vault_id := suite.keeper.GetVaultID(suite.ctx)
-	dummy_vault = types1.LockedVault{
-		LockedVaultId:                2,
-		OriginalVaultId:              2,
+	dummy_vault2 := types1.LockedVault{
+		LockedVaultId:                1,
+		OriginalVaultId:              1,
 		PairId:                       locked_vault_id,
-		Owner:                        "abc",
+		Owner:                        "comdex1pwu5sjk2lje94",
 		AmountIn:                     sdk.NewInt(1000000),
 		AmountOut:                    sdk.NewInt(1000000),
 		Initiator:                    types1.ModuleName,
@@ -437,8 +452,8 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 		SellOffHistory:               nil,
 	}
 
-	suite.keeper.SetLockedVault(suite.ctx, dummy_vault)
-	suite.keeper.SetLockedVaultID(suite.ctx, 3)
+	suite.keeper.SetLockedVault(suite.ctx, dummy_vault2)
+	suite.keeper.SetLockedVaultID(suite.ctx, 1)
 
 	vault_id = suite.keeper.GetVaultID(suite.ctx)
 	err = suite.keeper.UnliquidateLockedVaults(suite.ctx)
@@ -447,34 +462,34 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	suite.Equal(vault_id, suite.keeper.GetVaultID(suite.ctx))
 
 	vaults_set_by_func = suite.keeper.GetVaults(suite.ctx)
-	suite.Equal(len(vaults_set_by_func), 1) //there's a vault from prev case
+	suite.Equal(len(vaults_set_by_func), 0)
 
-	_, found = suite.keeper.GetLockedVault(suite.ctx, locked_vault_id)
+	_, found = suite.keeper.GetLockedVault(suite.ctx, 1)
 	suite.True(found)
 
-	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault.Owner), 1)
+	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault2.Owner), 1)
 	suite.False(found)
 
 }
 
 func (suite *LiquidateVaultTestSuite) TestUpdateLockedVaults() {
+	suite.SetupTest()
 	//empty keeper
 	err := suite.keeper.UpdateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
 
-	//dummy locked vault without a pair or assets declared
 	assetin := types3.Asset{
 		Id:       1,
 		Name:     "GOLD",
 		Denom:    "ucGOLD",
-		Decimals: 1000000,
+		Decimals: 100,
 	}
 
 	assetout := types3.Asset{
 		Id:       2,
 		Name:     "SILVER",
 		Denom:    "ucSILVER",
-		Decimals: 1000000,
+		Decimals: 500,
 	}
 
 	suite.assetKeeper.SetAsset(suite.ctx, assetin)
@@ -493,8 +508,8 @@ func (suite *LiquidateVaultTestSuite) TestUpdateLockedVaults() {
 		ID:        1,
 		PairID:    1,
 		Owner:     "abc",
-		AmountIn:  sdk.NewInt(1000000),
-		AmountOut: sdk.NewInt(1000000),
+		AmountIn:  sdk.NewInt(120),
+		AmountOut: sdk.NewInt(500),
 	}
 
 	suite.vaultKeeper.SetVault(suite.ctx, vault)
@@ -504,7 +519,8 @@ func (suite *LiquidateVaultTestSuite) TestUpdateLockedVaults() {
 
 	err = suite.keeper.UpdateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
-	locked_vault, _ := suite.keeper.GetLockedVault(suite.ctx, locked_vault_id)
-	suite.Equal(locked_vault.CollateralToBeAuctioned, sdk.MustNewDecFromStr("10000"))
+	locked_vault, _ := suite.keeper.GetLockedVault(suite.ctx, locked_vault_id+1)
+	selloff_expected := sdk.Dec(sdk.NewInt(100000))
+	suite.Equal(locked_vault.CollateralToBeAuctioned, &selloff_expected)
 
 }
