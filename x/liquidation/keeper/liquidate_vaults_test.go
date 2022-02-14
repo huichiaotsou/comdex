@@ -434,8 +434,8 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	//tests for the false case
 	suite.SetupTest()
 
-	locked_vault_id := suite.keeper.GetVaultID(suite.ctx)
-	dummy_vault2 := types1.LockedVault{
+	locked_vault_id := suite.keeper.GetLockedVaultID(suite.ctx)
+	dummy_vault = types1.LockedVault{
 		LockedVaultId:                1,
 		OriginalVaultId:              1,
 		PairId:                       locked_vault_id,
@@ -452,7 +452,7 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 		SellOffHistory:               nil,
 	}
 
-	suite.keeper.SetLockedVault(suite.ctx, dummy_vault2)
+	suite.keeper.SetLockedVault(suite.ctx, dummy_vault)
 
 	vault_id = suite.keeper.GetVaultID(suite.ctx)
 	err = suite.keeper.UnliquidateLockedVaults(suite.ctx)
@@ -463,10 +463,10 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	vaults_set_by_func = suite.keeper.GetVaults(suite.ctx)
 	suite.Equal(len(vaults_set_by_func), 0)
 
-	_, found = suite.keeper.GetLockedVault(suite.ctx, 0)
-	suite.True(found)
+	lockedVaults := suite.keeper.GetLockedVaults(suite.ctx)
+	suite.Equal(lockedVaults[0], dummy_vault)
 
-	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault2.Owner), 1)
+	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault.Owner), 1)
 	suite.False(found)
 
 }

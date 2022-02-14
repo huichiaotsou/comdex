@@ -164,7 +164,6 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 		v, _ := sdk.NewDecFromStr("1.6")
 		//also calculate the current collaterlization ration to ensure there is no sudden changes
 		if lockedVault.IsAuctionComplete && lockedVault.CurrentCollaterlisationRatio.GTE(v) {
-
 			var (
 				id    = k.GetVaultID(ctx)
 				vault = vaulttypes.Vault{
