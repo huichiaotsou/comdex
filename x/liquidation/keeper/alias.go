@@ -1,8 +1,6 @@
 package keeper
 
 import (
-	"fmt"
-
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
 	vaulttypes "github.com/comdex-official/comdex/x/vault/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -63,7 +61,6 @@ func (k *Keeper) CalculateCollaterlizationRatio(
 	totalIn := amountIn.Mul(sdk.NewIntFromUint64(assetInPrice)).QuoRaw(assetIn.Decimals).ToDec()
 
 	totalOut := amountOut.Mul(sdk.NewIntFromUint64(assetOutPrice)).QuoRaw(assetOut.Decimals).ToDec()
-	fmt.Println(totalIn, " ", totalOut)
 
 	return totalIn.Quo(totalOut), nil
 	// return k.vault.CalculateCollaterlizationRatio(ctx, amountIn, assetIn, amountOut, assetOut)

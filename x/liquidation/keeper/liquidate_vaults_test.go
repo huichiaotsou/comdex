@@ -453,7 +453,6 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	}
 
 	suite.keeper.SetLockedVault(suite.ctx, dummy_vault2)
-	suite.keeper.SetLockedVaultID(suite.ctx, 1)
 
 	vault_id = suite.keeper.GetVaultID(suite.ctx)
 	err = suite.keeper.UnliquidateLockedVaults(suite.ctx)
@@ -464,7 +463,7 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	vaults_set_by_func = suite.keeper.GetVaults(suite.ctx)
 	suite.Equal(len(vaults_set_by_func), 0)
 
-	_, found = suite.keeper.GetLockedVault(suite.ctx, 1)
+	_, found = suite.keeper.GetLockedVault(suite.ctx, 0)
 	suite.True(found)
 
 	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault2.Owner), 1)
@@ -475,9 +474,22 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 func (suite *LiquidateVaultTestSuite) TestUpdateLockedVaults() {
 	suite.SetupTest()
 	//empty keeper
+	vault_dummy := types2.Vault{
+		ID:        1,
+		PairID:    1,
+		Owner:     "abc",
+		AmountIn:  sdk.NewInt(120),
+		AmountOut: sdk.NewInt(500),
+	}
+	_ = suite.keeper.CreateLockedVault(suite.ctx, vault_dummy, sdk.MustNewDecFromStr("1.5"))
+	LV_before, _ := suite.keeper.GetLockedVault(suite.ctx, 0)
 	err := suite.keeper.UpdateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
+	LV_after, _ := suite.keeper.GetLockedVault(suite.ctx, 0)
+	suite.Equal(LV_before.CollateralToBeAuctioned, LV_after.CollateralToBeAuctioned)
 
+	//setup assets and vaults
+	suite.SetupTest()
 	assetin := types3.Asset{
 		Id:       1,
 		Name:     "GOLD",
@@ -511,16 +523,16 @@ func (suite *LiquidateVaultTestSuite) TestUpdateLockedVaults() {
 		AmountIn:  sdk.NewInt(120),
 		AmountOut: sdk.NewInt(500),
 	}
-
 	suite.vaultKeeper.SetVault(suite.ctx, vault)
+
 	locked_vault_id := suite.keeper.GetLockedVaultID(suite.ctx)
 	err = suite.keeper.CreateLockedVault(suite.ctx, vault, sdk.MustNewDecFromStr("1.5"))
 	suite.Equal(err, nil)
 
 	err = suite.keeper.UpdateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
-	locked_vault, _ := suite.keeper.GetLockedVault(suite.ctx, locked_vault_id+1)
-	selloff_expected := sdk.Dec(sdk.NewInt(100000))
+	locked_vault, _ := suite.keeper.GetLockedVault(suite.ctx, locked_vault_id)
+	selloff_expected := sdk.MustNewDecFromStr("12000")
 	suite.Equal(locked_vault.CollateralToBeAuctioned, &selloff_expected)
 
 }

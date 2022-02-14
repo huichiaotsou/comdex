@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"time"
 
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
@@ -81,13 +80,16 @@ func (k Keeper) CreateLockedVault(ctx sdk.Context, vault vaulttypes.Vault, colla
 }
 
 //for first time to update the coollateralization value & sell off amount
+//and if auction is complete and cr is less than 1.6
 func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 	lockedVaults := k.GetLockedVaults(ctx)
 	if len(lockedVaults) == 0 {
 		return nil
 	}
 	for _, lockedVault := range lockedVaults {
-		if !lockedVault.IsAuctionInProgress {
+		v, _ := sdk.NewDecFromStr("1.6")
+
+		if (!lockedVault.IsAuctionInProgress && !lockedVault.IsAuctionComplete) || (lockedVault.IsAuctionComplete && lockedVault.CurrentCollaterlisationRatio.LTE(v)) {
 			pair, found := k.GetPair(ctx, lockedVault.PairId)
 			if !found {
 				continue
@@ -96,7 +98,6 @@ func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 			if !found {
 				continue
 			}
-
 			assetOut, found := k.GetAsset(ctx, pair.AssetOut)
 			if !found {
 				continue
@@ -105,8 +106,7 @@ func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 			if err != nil {
 				continue
 			}
-			lockedVault.CurrentCollaterlisationRatio = collateralizationRatio
-			fmt.Println(collateralizationRatio)
+			//lockedVault.CurrentCollaterlisationRatio = collateralizationRatio
 
 			assetInPrice, _ := k.GetPriceForAsset(ctx, assetIn.Id)
 			assetOutPrice, _ := k.GetPriceForAsset(ctx, assetOut.Id)
@@ -115,21 +115,21 @@ func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 			totalOut := lockedVault.AmountOut.Mul(sdk.NewIntFromUint64(assetOutPrice)).ToDec()
 
 			var selloffAmount sdk.Dec
-			var v, t sdk.Dec
-			v, _ = sdk.NewDecFromStr("1.6")
-			t, _ = sdk.NewDecFromStr("0.28")
-			a := totalOut.Mul(v)
-			b := totalIn
-			c := a.Sub(b)
-			selloffAmount = (c).Quo(t)
+			var collateralToBeAuctioned sdk.Dec
+			var unliquidatePoint, dividingFactor sdk.Dec
+			unliquidatePoint, _ = sdk.NewDecFromStr("1.6")
+			dividingFactor, _ = sdk.NewDecFromStr("0.28")
+			assetOutatLiquidatePoint := totalOut.Mul(unliquidatePoint)
+			collateralIn := totalIn
+			assetsDifference := assetOutatLiquidatePoint.Sub(collateralIn)
+			selloffAmount = (assetsDifference).Quo(dividingFactor)
 
 			if selloffAmount.GTE(totalIn) {
-				lockedVault.CollateralToBeAuctioned = &totalIn
+				collateralToBeAuctioned = totalIn
 			} else {
-				value := totalIn.Sub(selloffAmount)
-				lockedVault.CollateralToBeAuctioned = &value
-			}
 
+				collateralToBeAuctioned = selloffAmount
+			}
 			updatedLockedVault := types.LockedVault{
 				LockedVaultId:                lockedVault.LockedVaultId,
 				OriginalVaultId:              lockedVault.OriginalVaultId,
@@ -138,13 +138,13 @@ func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 				AmountIn:                     lockedVault.AmountIn,
 				AmountOut:                    lockedVault.AmountOut,
 				Initiator:                    lockedVault.Initiator,
-				IsAuctionComplete:            false,
-				IsAuctionInProgress:          false,
+				IsAuctionComplete:            lockedVault.IsAuctionComplete,
+				IsAuctionInProgress:          lockedVault.IsAuctionInProgress,
 				CrAtLiquidation:              lockedVault.CrAtLiquidation,
 				CurrentCollaterlisationRatio: collateralizationRatio,
-				CollateralToBeAuctioned:      &selloffAmount,
+				CollateralToBeAuctioned:      &collateralToBeAuctioned,
 				LiquidationTimestamp:         lockedVault.LiquidationTimestamp,
-				SellOffHistory:               nil,
+				SellOffHistory:               lockedVault.SellOffHistory,
 			}
 
 			k.SetLockedVault(ctx, updatedLockedVault)
@@ -179,8 +179,6 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 			k.SetVaultID(ctx, id+1)
 			k.SetVault(ctx, vault)
 			k.SetVaultForAddressByPair(ctx, sdk.AccAddress(lockedVault.Owner), lockedVault.PairId, id+1)
-			fmt.Println(k.HasVaultForAddressByPair(ctx, sdk.AccAddress(lockedVault.
-				Owner), 3))
 			//Save Locked vault historical data in a store
 			//Set Auctioned historical in a store seperately
 			k.DeleteLockedVault(ctx, lockedVault.LockedVaultId)
