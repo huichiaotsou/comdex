@@ -176,15 +176,19 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 					AmountOut: lockedVault.AmountOut,
 				}
 			)
-			k.SetVaultID(ctx, id+1)
+			k.SetVaultID(ctx, vault.ID)
 			k.SetVault(ctx, vault)
+			fmt.Println("so far so good")
 			userAddress, err := sdk.AccAddressFromBech32(lockedVault.Owner)
 			if err != nil {
 				return err
 			}
 
-			k.SetVaultForAddressByPair(ctx, userAddress, lockedVault.PairId, id+1)
-			fmt.Println(k.HasVaultForAddressByPair(ctx, userAddress, 1))
+			fmt.Println("so far")
+			k.DeleteVaultForAddressByPair(ctx, userAddress, lockedVault.PairId)
+
+			k.SetVaultForAddressByPair(ctx, userAddress, lockedVault.PairId, vault.ID)
+			fmt.Println(k.HasVaultForAddressByPair(ctx, sdk.AccAddress(lockedVault.Owner), 1))
 			//Save Locked vault historical data in a store
 			//Set Auctioned historical in a store seperately
 			k.DeleteLockedVault(ctx, lockedVault.LockedVaultId)

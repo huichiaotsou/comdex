@@ -386,14 +386,11 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	err := suite.keeper.UnliquidateLockedVaults(suite.ctx)
 	suite.Equal(err, nil)
 
-	app.SetAccountAddressPrefixes()
-	address := "comdex1yples84d8avjlmegn90663mmjs4tardw45af6v"
-
 	dummy_vault := types1.LockedVault{
 		LockedVaultId:                types.DefaultIndex,
 		OriginalVaultId:              types.DefaultIndex,
 		PairId:                       1,
-		Owner:                        address,
+		Owner:                        "abc",
 		AmountIn:                     sdk.NewInt(1000000),
 		AmountOut:                    sdk.NewInt(1000000),
 		Initiator:                    types1.ModuleName,
@@ -431,8 +428,7 @@ func (suite *LiquidateVaultTestSuite) TestUnliquidateLockedVaults() {
 	_, found := suite.keeper.GetLockedVault(suite.ctx, types.DefaultIndex)
 	suite.False(found)
 
-	userAddress, _ := sdk.AccAddressFromBech32(dummy_vault.Owner)
-	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, userAddress, dummy_vault.PairId)
+	found = suite.keeper.HasVaultForAddressByPair(suite.ctx, sdk.AccAddress(dummy_vault.Owner), dummy_vault.PairId)
 	suite.True(found)
 
 	//tests for the false case
