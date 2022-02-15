@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"time"
 
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
@@ -164,6 +165,7 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 		v, _ := sdk.NewDecFromStr("1.6")
 		//also calculate the current collaterlization ration to ensure there is no sudden changes
 		if lockedVault.IsAuctionComplete && lockedVault.CurrentCollaterlisationRatio.GTE(v) {
+			fmt.Println("true case")
 			var (
 				id    = k.GetVaultID(ctx)
 				vault = vaulttypes.Vault{
@@ -182,6 +184,7 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 			}
 
 			k.SetVaultForAddressByPair(ctx, userAddress, lockedVault.PairId, id+1)
+			fmt.Println(k.HasVaultForAddressByPair(ctx, userAddress, 1))
 			//Save Locked vault historical data in a store
 			//Set Auctioned historical in a store seperately
 			k.DeleteLockedVault(ctx, lockedVault.LockedVaultId)
