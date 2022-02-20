@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	"time"
 
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
@@ -123,6 +124,7 @@ func (k Keeper) UpdateLockedVaults(ctx sdk.Context) error {
 			collateralIn := totalIn
 			assetsDifference := assetOutatLiquidatePoint.Sub(collateralIn)
 			selloffAmount = (assetsDifference).Quo(dividingFactor)
+
 			if selloffAmount.GTE(totalIn) {
 				collateralToBeAuctioned = totalIn
 			} else {
@@ -163,7 +165,7 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 		v, _ := sdk.NewDecFromStr("1.6")
 		//also calculate the current collaterlization ration to ensure there is no sudden changes
 		if lockedVault.IsAuctionComplete && lockedVault.CurrentCollaterlisationRatio.GTE(v) {
-
+			fmt.Println("true case")
 			var (
 				id    = k.GetVaultID(ctx)
 				vault = vaulttypes.Vault{
@@ -176,13 +178,17 @@ func (k Keeper) UnliquidateLockedVaults(ctx sdk.Context) error {
 			)
 			k.SetVaultID(ctx, vault.ID)
 			k.SetVault(ctx, vault)
+			fmt.Println("so far so good")
 			userAddress, err := sdk.AccAddressFromBech32(lockedVault.Owner)
 			if err != nil {
 				return err
 			}
+
+			fmt.Println("so far")
 			k.DeleteVaultForAddressByPair(ctx, userAddress, lockedVault.PairId)
 
 			k.SetVaultForAddressByPair(ctx, userAddress, lockedVault.PairId, vault.ID)
+			fmt.Println(k.HasVaultForAddressByPair(ctx, sdk.AccAddress(lockedVault.Owner), 1))
 			//Save Locked vault historical data in a store
 			//Set Auctioned historical in a store seperately
 			k.DeleteLockedVault(ctx, lockedVault.LockedVaultId)

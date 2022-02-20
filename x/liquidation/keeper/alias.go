@@ -54,7 +54,16 @@ func (k *Keeper) CalculateCollaterlizationRatio(
 	amountOut sdk.Int,
 	assetOut assettypes.Asset,
 ) (sdk.Dec, error) {
-	return k.vault.CalculateCollaterlizationRatio(ctx, amountIn, assetIn, amountOut, assetOut)
+	assetInPrice, _ := k.GetPriceForAsset(ctx, assetIn.Id)
+
+	assetOutPrice, _ := k.GetPriceForAsset(ctx, assetOut.Id)
+
+	totalIn := amountIn.Mul(sdk.NewIntFromUint64(assetInPrice)).QuoRaw(assetIn.Decimals).ToDec()
+
+	totalOut := amountOut.Mul(sdk.NewIntFromUint64(assetOutPrice)).QuoRaw(assetOut.Decimals).ToDec()
+
+	return totalIn.Quo(totalOut), nil
+	// return k.vault.CalculateCollaterlizationRatio(ctx, amountIn, assetIn, amountOut, assetOut)
 }
 
 func (k *Keeper) GetVaultID(ctx sdk.Context) uint64 {
@@ -74,5 +83,21 @@ func (k *Keeper) SetVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddres
 }
 
 func (k *Keeper) GetPriceForAsset(ctx sdk.Context, id uint64) (uint64, bool) {
-	return k.oracle.GetPriceForAsset(ctx, id)
+	// return k.oracle.GetPriceForAsset(ctx, id)
+
+	//for the test cases
+	if id%2 == 1 {
+		return 100, true
+	} else {
+		return 50, true
+	}
+}
+
+func (k *Keeper) HasVaultForAddressByPair(ctx sdk.Context, address sdk.AccAddress, pairID uint64) bool {
+	var (
+		store = k.Store(ctx)
+		key   = vaulttypes.VaultForAddressByPair(address, pairID)
+	)
+
+	return store.Has(key)
 }

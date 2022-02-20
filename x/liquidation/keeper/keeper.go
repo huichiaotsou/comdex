@@ -21,7 +21,7 @@ type Keeper struct {
 	bank       expected.BankKeeper
 	vault      expected.VaultKeeper
 	asset      expected.AssetKeeper
-	oracle	   expected.OracleKeeper
+	oracle     expected.OracleKeeper
 }
 
 func NewKeeper(
