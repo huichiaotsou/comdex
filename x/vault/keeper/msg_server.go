@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/comdex-official/comdex/x/vault/types"
@@ -47,7 +48,6 @@ func (k *msgServer) MsgCreate(c context.Context, msg *types.MsgCreateRequest) (*
 	if !found {
 		return nil, types.ErrorAssetDoesNotExist
 	}
-
 	if err := k.VerifyCollaterlizationRatio(ctx, msg.AmountIn, assetIn, msg.AmountOut, assetOut, pair.LiquidationRatio); err != nil {
 		return nil, err
 	}
