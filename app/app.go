@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/comdex-official/comdex/x/loan"
 	rewardsclient "github.com/comdex-official/comdex/x/rewards/client"
 	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
 	paramsclient "github.com/cosmos/cosmos-sdk/x/params/client"
@@ -116,6 +117,8 @@ import (
 
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	loankeeper "github.com/comdex-official/comdex/x/loan/keeper"
+	loantypes "github.com/comdex-official/comdex/x/loan/types"
 	"github.com/comdex-official/comdex/x/rewards"
 	rewardskeeper "github.com/comdex-official/comdex/x/rewards/keeper"
 	rewardstypes "github.com/comdex-official/comdex/x/rewards/types"
@@ -170,6 +173,7 @@ var (
 		auction.AppModuleBasic{},
 		rewards.AppModuleBasic{},
 		wasm.AppModuleBasic{},
+		loan.AppModuleBasic{},
 	)
 )
 
@@ -236,6 +240,7 @@ type App struct {
 	auctionKeeper     auctionkeeper.Keeper
 	rewardsKeeper     rewardskeeper.Keeper
 	scopedWasmKeeper  capabilitykeeper.ScopedKeeper
+	LoanKeeper        loankeeper.Keeper
 
 	wasmKeeper wasm.Keeper
 	// the module manager
@@ -269,7 +274,7 @@ func New(
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
 			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey,
 			oracletypes.StoreKey, bandoraclemoduletypes.StoreKey, liquidationtypes.StoreKey,
-			auctiontypes.StoreKey, wasm.StoreKey, rewardstypes.StoreKey,
+			auctiontypes.StoreKey, wasm.StoreKey, rewardstypes.StoreKey, loantypes.StoreKey,
 		)
 	)
 
@@ -317,6 +322,7 @@ func New(
 	app.paramsKeeper.Subspace(auctiontypes.ModuleName)
 	app.paramsKeeper.Subspace(rewardstypes.ModuleName)
 	app.paramsKeeper.Subspace(wasmtypes.ModuleName)
+	app.paramsKeeper.Subspace(loantypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	baseApp.SetParamStore(
@@ -587,6 +593,16 @@ func New(
 	)
 	app.evidenceKeeper.SetRouter(evidenceRouter)
 
+	app.LoanKeeper = *loankeeper.NewKeeper(
+		appCodec,
+		keys[loantypes.StoreKey],
+		keys[loantypes.MemStoreKey],
+		app.GetSubspace(loantypes.ModuleName),
+
+		app.bankKeeper,
+	)
+	loanModule := loan.NewAppModule(appCodec, app.LoanKeeper, app.accountKeeper, app.bankKeeper)
+
 	/****  Module Options ****/
 
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
@@ -623,6 +639,7 @@ func New(
 		auction.NewAppModule(app.cdc, app.auctionKeeper, app.accountKeeper, app.bankKeeper),
 		rewards.NewAppModule(app.cdc, app.rewardsKeeper, app.accountKeeper, app.bankKeeper),
 		wasm.NewAppModule(app.cdc, &app.wasmKeeper, app.stakingKeeper),
+		loanModule,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -636,7 +653,7 @@ func New(
 		auctiontypes.ModuleName, crisistypes.ModuleName, genutiltypes.ModuleName, authtypes.ModuleName,
 		capabilitytypes.ModuleName, transferModule.Name(), assettypes.ModuleName, vaulttypes.ModuleName,
 		vesting.AppModuleBasic{}.Name(), paramstypes.ModuleName, wasmtypes.ModuleName, banktypes.ModuleName,
-		govtypes.ModuleName, rewardstypes.ModuleName,
+		govtypes.ModuleName, rewardstypes.ModuleName, loantypes.ModuleName,
 	)
 
 	app.mm.SetOrderEndBlockers(
@@ -646,6 +663,7 @@ func New(
 		vaulttypes.ModuleName, wasmtypes.ModuleName, authtypes.ModuleName, slashingtypes.ModuleName, paramstypes.ModuleName,
 		oracletypes.ModuleName, capabilitytypes.ModuleName, upgradetypes.ModuleName, transferModule.Name(),
 		assettypes.ModuleName, banktypes.ModuleName, liquidationtypes.ModuleName, auctiontypes.ModuleName, rewardstypes.ModuleName,
+		loantypes.ModuleName,
 	)
 
 	// NOTE: The genutils module must occur after staking so that pools are
@@ -681,6 +699,7 @@ func New(
 		wasmtypes.ModuleName,
 		vesting.AppModuleBasic{}.Name(),
 		paramstypes.ModuleName,
+		loantypes.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
@@ -866,6 +885,7 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 		auctiontypes.ModuleName:        {authtypes.Minter, authtypes.Burner},
 		rewardstypes.ModuleName:        nil,
 		wasm.ModuleName:                {authtypes.Burner},
+		loantypes.ModuleName:           {authtypes.Minter, authtypes.Burner},
 	}
 }
 func (app *App) registerUpgradeHandlers() {
