@@ -53,4 +53,6 @@ var (
 	ErrNotEnoughCoinsForBonding            = sdkerrors.Register(ModuleName, 45, "User does not have enough unbonded coins for bonding process")
 	ErrNotEnoughCoinsForUnBonding          = sdkerrors.Register(ModuleName, 46, "User does not have enough bonded coins for unbonding process")
 	ErrNotEnoughUnbondedCoins              = sdkerrors.Register(ModuleName, 47, "User does not have enough unbonded coins for withdrawl process")
+	ErrorEmptyProposalUnbondingDuration    = sdkerrors.Register(ModuleName, 48, "empty unbonding duration in proposal")
+	ErrorUnknownProposalType               = sdkerrors.Register(ModuleName, 49, "unknown proposal type")
 )

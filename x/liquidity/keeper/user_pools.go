@@ -170,6 +170,10 @@ func (k *Keeper) CompletingUnbondingProcess(ctx sdk.Context) {
 
 }
 
+func (k *Keeper) AddUnbondingDurationRecords(ctx sdk.Context, records string) error {
+	return nil
+}
+
 //Functions that will be made
 
 //3. Get AllUsersPOOLSDATA- for all users -- this will -done

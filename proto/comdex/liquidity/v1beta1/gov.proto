@@ -1,0 +1,13 @@
+syntax = "proto3";
+package comdex.liquidity.v1beta1;
+
+import "comdex/liquidity/v1beta1/liquidity.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/comdex-official/comdex/x/liquidity/types";
+
+message UpdateUnbondingDuration {
+  string title = 1 [(gogoproto.moretags) = "yaml:\"title\""];
+  string description = 2 [(gogoproto.moretags) = "yaml:\"description\""];
+  string UnbondingDuration = 3 [(gogoproto.moretags) = "yaml:\"UnbondingDuration\""];
+}

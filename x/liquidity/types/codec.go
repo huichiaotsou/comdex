@@ -6,6 +6,7 @@ import (
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 )
 
 // RegisterLegacyAminoCodec registers concrete types on the codec.
@@ -16,6 +17,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgSwapWithinBatch{}, "liquidity/MsgSwapWithinBatch", nil)
 	cdc.RegisterConcrete(&MsgBondPoolTokens{}, "liquidity/MsgBondPoolTokens", nil)
 	cdc.RegisterConcrete(&MsgUnbondPoolTokens{}, "liquidity/MsgUnbondPoolTokens", nil)
+	cdc.RegisterConcrete(&UpdateUnbondingDuration{}, "comdex/UpdateUnbondingDuration", nil)
 
 }
 
@@ -29,6 +31,10 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&MsgSwapWithinBatch{},
 		&MsgBondPoolTokens{},
 		&MsgUnbondPoolTokens{},
+	)
+	registry.RegisterImplementations(
+		(*govtypes.Content)(nil),
+		&UpdateUnbondingDuration{},
 	)
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }
