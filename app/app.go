@@ -1,7 +1,9 @@
 package app
 
 import (
+	liquidationclient "github.com/comdex-official/comdex/x/liquidation/client"
 	liquidityclient "github.com/comdex-official/comdex/x/liquidity/client"
+
 	rewardsclient "github.com/comdex-official/comdex/x/rewards/client"
 
 	distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
@@ -154,6 +156,7 @@ var (
 				rewardsclient.AddNewMintingRewardsHandler,
 				rewardsclient.DisableMintingRewardsHandler,
 				liquidityclient.AddUnbondingDurationHandler,
+				liquidationclient.AddUnliqPointPercentage,
 			)...,
 		),
 		params.AppModuleBasic{},
@@ -564,8 +567,8 @@ func New(
 		AddRoute(assettypes.RouterKey, asset.NewUpdateAssetProposalHandler(app.assetKeeper)).
 		AddRoute(bandoraclemoduletypes.RouterKey, bandoraclemodule.NewFetchPriceHandler(app.BandoracleKeeper)).
 		AddRoute(rewardstypes.RouterKey, rewards.NewRewardsProposalHandler(app.rewardsKeeper)).
-		AddRoute(liquiditytypes.RouterKey,liquidity.NewAddUnbondingPeriodProposalHandler(app.liquidityKeeper))
-		//AddRoute(liquidationtypes.RouterKey,liquidation.)
+		AddRoute(liquiditytypes.RouterKey,liquidity.NewAddUnbondingPeriodProposalHandler(app.liquidityKeeper)).
+		AddRoute(liquidationtypes.RouterKey,liquidation.NewAddUnliquidatePointPercentageProposalHandler(app.liquidationKeeper))
 
 	app.govKeeper = govkeeper.NewKeeper(
 		app.cdc,

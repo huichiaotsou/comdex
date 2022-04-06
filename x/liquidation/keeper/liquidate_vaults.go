@@ -343,3 +343,7 @@ func (k *Keeper) UpdateAssetQuantitiesInLockedVault(
 	k.SetLockedVault(ctx, locked_vault)
 	return nil
 }
+
+func (k *Keeper) AddUnliquidatePointPercentageRecords(ctx sdk.Context, records string) error {
+	return nil
+}
