@@ -1,27 +1,27 @@
 syntax = "proto3";
 package comdex.liquidity.v1beta1;
 
-import "comdex/liquidity/v1beta1/liquidity.proto";
 import "gogoproto/gogo.proto";
+import "comdex/liquidity/v1beta1/liquidity.proto";
 
 option go_package = "github.com/comdex-official/comdex/x/liquidity/types";
-
-// records the state of each pool after genesis export or import, used to check variables
-message PoolRecord {
-    Pool pool = 1 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"pool\""];
-    PoolMetadata pool_metadata = 2 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"pool_metadata\""];
-    PoolBatch pool_batch = 3 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"pool_batch\""];
-    repeated DepositMsgState deposit_msg_states = 4 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"deposit_msg_states\""];
-    repeated WithdrawMsgState withdraw_msg_states = 5 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"withdraw_msg_states\""];
-    repeated SwapMsgState swap_msg_states = 6 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"swap_msg_states\""];
-}
+option (gogoproto.goproto_getters_all) = false;
 
 // GenesisState defines the liquidity module's genesis state.
 message GenesisState {
-    option (gogoproto.equal) = false;
-    option (gogoproto.goproto_getters) = false;
+  Params params = 1 [(gogoproto.nullable) = false];
 
-    // params defines all the parameters for the liquidity module.
-    Params params = 1 [(gogoproto.nullable) = false];
-    repeated PoolRecord pool_records = 2 [(gogoproto.nullable) = false, (gogoproto.moretags) = "yaml:\"pools\""];
+  uint64 last_pair_id = 2;
+
+  uint64 last_pool_id = 3;
+
+  repeated Pair pairs = 4 [(gogoproto.nullable) = false];
+
+  repeated Pool pools = 5 [(gogoproto.nullable) = false];
+
+  repeated DepositRequest deposit_requests = 6 [(gogoproto.nullable) = false];
+
+  repeated WithdrawRequest withdraw_requests = 7 [(gogoproto.nullable) = false];
+
+  repeated Order orders = 8 [(gogoproto.nullable) = false];
 }

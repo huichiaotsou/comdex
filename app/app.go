@@ -112,6 +112,11 @@ import (
 	"github.com/comdex-official/comdex/x/liquidity"
 	liquiditykeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
 	liquiditytypes "github.com/comdex-official/comdex/x/liquidity/types"
+
+	"github.com/comdex-official/comdex/x/farming"
+	farmingkeeper "github.com/comdex-official/comdex/x/farming/keeper"
+	farmingtypes "github.com/comdex-official/comdex/x/farming/types"
+
 	"github.com/comdex-official/comdex/x/market"
 	marketkeeper "github.com/comdex-official/comdex/x/market/keeper"
 	markettypes "github.com/comdex-official/comdex/x/market/types"
@@ -171,6 +176,7 @@ var (
 		vault.AppModuleBasic{},
 		asset.AppModuleBasic{},
 		liquidity.AppModuleBasic{},
+		farming.AppModuleBasic{},
 		asset.AppModuleBasic{},
 		market.AppModuleBasic{},
 		bandoraclemodule.AppModuleBasic{},
@@ -240,6 +246,7 @@ type App struct {
 	assetKeeper       assetkeeper.Keeper
 	vaultKeeper       vaultkeeper.Keeper
 	liquidityKeeper   liquiditykeeper.Keeper
+	farmingKeeper     farmingkeeper.Keeper
 	marketKeeper      marketkeeper.Keeper
 	liquidationKeeper liquidationkeeper.Keeper
 	auctionKeeper     auctionkeeper.Keeper
@@ -276,7 +283,7 @@ func New(
 			minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
 			govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
-			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey,
+			vaulttypes.StoreKey, liquiditytypes.StoreKey, farmingtypes.StoreKey, assettypes.StoreKey,
 			markettypes.StoreKey, bandoraclemoduletypes.StoreKey, liquidationtypes.StoreKey,
 			auctiontypes.StoreKey, wasm.StoreKey, rewardstypes.StoreKey, authzkeeper.StoreKey,
 		)
@@ -316,6 +323,7 @@ func New(
 		WithKeyTable(govtypes.ParamKeyTable())
 	app.paramsKeeper.Subspace(crisistypes.ModuleName)
 	app.paramsKeeper.Subspace(liquiditytypes.ModuleName)
+	app.paramsKeeper.Subspace(farmingtypes.ModuleName)
 	app.paramsKeeper.Subspace(ibctransfertypes.ModuleName)
 	app.paramsKeeper.Subspace(ibchost.ModuleName)
 	app.paramsKeeper.Subspace(vaulttypes.ModuleName)
@@ -456,9 +464,16 @@ func New(
 		app.cdc,
 		app.keys[liquiditytypes.StoreKey],
 		app.GetSubspace(liquiditytypes.ModuleName),
-		app.bankKeeper,
 		app.accountKeeper,
-		app.distrKeeper,
+		app.bankKeeper,
+	)
+
+	app.farmingKeeper = farmingkeeper.NewKeeper(
+		app.cdc,
+		app.keys[farmingtypes.StoreKey],
+		app.GetSubspace(farmingtypes.ModuleName),
+		app.accountKeeper,
+		app.bankKeeper,
 	)
 
 	scopedBandoracleKeeper := app.capabilityKeeper.ScopeToModule(bandoraclemoduletypes.ModuleName)
@@ -637,7 +652,8 @@ func New(
 		transferModule,
 		asset.NewAppModule(app.cdc, app.assetKeeper),
 		vault.NewAppModule(app.cdc, app.vaultKeeper),
-		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper, app.distrKeeper),
+		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper),
+		farming.NewAppModule(app.cdc, app.farmingKeeper, app.accountKeeper, app.bankKeeper),
 		asset.NewAppModule(app.cdc, app.assetKeeper),
 		oracleModule,
 		bandoracleModule,
@@ -653,7 +669,7 @@ func New(
 	// NOTE: staking module is required if HistoricalEntries param > 0
 	app.mm.SetOrderBeginBlockers(
 		upgradetypes.ModuleName, minttypes.ModuleName, distrtypes.ModuleName, slashingtypes.ModuleName,
-		evidencetypes.ModuleName, stakingtypes.ModuleName, liquiditytypes.ModuleName, ibchost.ModuleName,
+		evidencetypes.ModuleName, stakingtypes.ModuleName, liquiditytypes.ModuleName, farmingtypes.ModuleName, ibchost.ModuleName,
 		bandoraclemoduletypes.ModuleName, markettypes.ModuleName, liquidationtypes.ModuleName,
 		auctiontypes.ModuleName, crisistypes.ModuleName, genutiltypes.ModuleName, authtypes.ModuleName,
 		capabilitytypes.ModuleName, transferModule.Name(), assettypes.ModuleName, vaulttypes.ModuleName,
@@ -663,7 +679,7 @@ func New(
 
 	app.mm.SetOrderEndBlockers(
 		crisistypes.ModuleName, govtypes.ModuleName, stakingtypes.ModuleName, liquiditytypes.ModuleName,
-		bandoraclemoduletypes.ModuleName, minttypes.ModuleName,
+		farmingtypes.ModuleName, bandoraclemoduletypes.ModuleName, minttypes.ModuleName,
 		distrtypes.ModuleName, genutiltypes.ModuleName, vesting.AppModuleBasic{}.Name(), evidencetypes.ModuleName, ibchost.ModuleName,
 		vaulttypes.ModuleName, wasmtypes.ModuleName, authtypes.ModuleName, slashingtypes.ModuleName, paramstypes.ModuleName,
 		markettypes.ModuleName, capabilitytypes.ModuleName, upgradetypes.ModuleName, transferModule.Name(),
@@ -690,6 +706,7 @@ func New(
 		genutiltypes.ModuleName,
 		evidencetypes.ModuleName,
 		liquiditytypes.ModuleName,
+		farmingtypes.ModuleName,
 		ibctransfertypes.ModuleName,
 		assettypes.ModuleName,
 		vaulttypes.ModuleName,
@@ -886,6 +903,7 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		vaulttypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 		liquiditytypes.ModuleName:      {authtypes.Minter, authtypes.Burner},
+		farmingtypes.ModuleName:        {authtypes.Minter, authtypes.Burner},
 		liquidationtypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		auctiontypes.ModuleName:        {authtypes.Minter, authtypes.Burner},
 		rewardstypes.ModuleName:        nil,

@@ -2,47 +2,46 @@ package types
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/types"
+	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 )
 
-// RegisterLegacyAminoCodec registers concrete types on the codec.
+// RegisterLegacyAminoCodec registers the necessary x/liquidity interfaces and concrete types
+// on the provided LegacyAmino codec. These types are used for Amino JSON serialization.
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
-	cdc.RegisterConcrete(&MsgCreatePool{}, "comdex/liquidity/create-pool", nil)
-	cdc.RegisterConcrete(&MsgDepositWithinBatch{}, "comdex/liquidity/deposit", nil)
-	cdc.RegisterConcrete(&MsgWithdrawWithinBatch{}, "comdex/liquidity/withdraw", nil)
-	cdc.RegisterConcrete(&MsgSwapWithinBatch{}, "comdex/liquidity/swap", nil)
-	cdc.RegisterConcrete(&MsgBondPoolTokens{}, "comdex/liquidity/bond", nil)
-	cdc.RegisterConcrete(&MsgUnbondPoolTokens{}, "comdex/liquidity/unbond", nil)
-
+	cdc.RegisterConcrete(&MsgCreatePair{}, "liquidity/MsgCreatePair", nil)
+	cdc.RegisterConcrete(&MsgCreatePool{}, "liquidity/MsgCreatePool", nil)
+	cdc.RegisterConcrete(&MsgDeposit{}, "liquidity/MsgDeposit", nil)
+	cdc.RegisterConcrete(&MsgWithdraw{}, "liquidity/MsgWithdraw", nil)
+	cdc.RegisterConcrete(&MsgLimitOrder{}, "liquidity/MsgLimitOrder", nil)
+	cdc.RegisterConcrete(&MsgMarketOrder{}, "liquidity/MsgMarketOrder", nil)
+	cdc.RegisterConcrete(&MsgCancelOrder{}, "liquidity/MsgCancelOrder", nil)
+	cdc.RegisterConcrete(&MsgCancelAllOrders{}, "liquidity/MsgCancelAllOrders", nil)
 }
 
-// RegisterInterfaces registers the x/liquidity interface types with the
-// interface registry
-func RegisterInterfaces(registry types.InterfaceRegistry) {
-	registry.RegisterImplementations((*sdk.Msg)(nil),
+// RegisterInterfaces registers the x/liquidity interfaces types with the
+// interface registry.
+func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
+	registry.RegisterImplementations(
+		(*sdk.Msg)(nil),
+		&MsgCreatePair{},
 		&MsgCreatePool{},
-		&MsgDepositWithinBatch{},
-		&MsgWithdrawWithinBatch{},
-		&MsgSwapWithinBatch{},
-		&MsgBondPoolTokens{},
-		&MsgUnbondPoolTokens{},
+		&MsgDeposit{},
+		&MsgWithdraw{},
+		&MsgLimitOrder{},
+		&MsgMarketOrder{},
+		&MsgCancelOrder{},
+		&MsgCancelAllOrders{},
 	)
+
 	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }
 
-// legacy amino codecs
 var (
 	amino = codec.NewLegacyAmino()
 
-	// ModuleCdc references the global x/liquidity module codec. Note, the
-	// codec should ONLY be used in certain instances of tests and for JSON
-	// encoding as Amino is still used for that purpose.
-	//
-	// The actual codec used for serialization should be provided to x/liquidity
-	// and defined at the application level.
 	ModuleCdc = codec.NewAminoCodec(amino)
 )
 

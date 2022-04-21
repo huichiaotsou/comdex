@@ -1,16 +1,15 @@
 package keeper
 
-// DONTCOVER
-// client is excluded from test coverage in the poc phase milestone 1 and will be included in milestone 2 with completeness
-
 import (
 	"context"
+	"strconv"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/cosmos/cosmos-sdk/store/prefix"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/comdex-official/comdex/x/liquidity/types"
 )
@@ -22,345 +21,507 @@ type Querier struct {
 
 var _ types.QueryServer = Querier{}
 
-// LiquidityPool queries a liquidity pool with the given pool id.
-func (k Querier) LiquidityPool(c context.Context, req *types.QueryLiquidityPoolRequest) (*types.QueryLiquidityPoolResponse, error) {
-	empty := &types.QueryLiquidityPoolRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// Params queries the parameters of the liquidity module.
+func (k Querier) Params(c context.Context, _ *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
+	ctx := sdk.UnwrapSDKContext(c)
+	var params types.Params
+	k.Keeper.paramSpace.GetParamSet(ctx, &params)
+	return &types.QueryParamsResponse{Params: params}, nil
+}
+
+// Pools queries all pools.
+func (k Querier) Pools(c context.Context, req *types.QueryPoolsRequest) (*types.QueryPoolsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	var disabled bool
+	if req.Disabled != "" {
+		var err error
+		disabled, err = strconv.ParseBool(req.Disabled)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	store := ctx.KVStore(k.storeKey)
+
+	var keyPrefix []byte
+	var poolGetter func(key, value []byte) types.Pool
+	var pairGetter func(id uint64) types.Pair
+	pairMap := map[uint64]types.Pair{}
+	switch {
+	case req.PairId == 0:
+		keyPrefix = types.PoolKeyPrefix
+		poolGetter = func(_, value []byte) types.Pool {
+			return types.MustUnmarshalPool(k.cdc, value)
+		}
+		pairGetter = func(id uint64) types.Pair {
+			pair, ok := pairMap[id]
+			if !ok {
+				pair, _ = k.GetPair(ctx, id)
+				pairMap[id] = pair
+			}
+			return pair
+		}
+	default:
+		keyPrefix = types.GetPoolsByPairIndexKeyPrefix(req.PairId)
+		poolGetter = func(key, _ []byte) types.Pool {
+			poolId := types.ParsePoolsByPairIndexKey(append(keyPrefix, key...))
+			pool, _ := k.GetPool(ctx, poolId)
+			return pool
+		}
+		pair, _ := k.GetPair(ctx, req.PairId)
+		pairGetter = func(_ uint64) types.Pair {
+			return pair
+		}
+	}
+
+	poolStore := prefix.NewStore(store, keyPrefix)
+
+	var poolsRes []types.PoolResponse
+	pageRes, err := query.FilteredPaginate(poolStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		pool := poolGetter(key, value)
+		if req.Disabled != "" {
+			if pool.Disabled != disabled {
+				return false, nil
+			}
+		}
+
+		pair := pairGetter(pool.PairId)
+		rx, ry := k.getPoolBalances(ctx, pool, pair)
+		poolRes := types.PoolResponse{
+			Id:                    pool.Id,
+			PairId:                pool.PairId,
+			ReserveAddress:        pool.ReserveAddress,
+			PoolCoinDenom:         pool.PoolCoinDenom,
+			Balances:              sdk.NewCoins(rx, ry),
+			LastDepositRequestId:  pool.LastDepositRequestId,
+			LastWithdrawRequestId: pool.LastWithdrawRequestId,
+		}
+
+		if accumulate {
+			poolsRes = append(poolsRes, poolRes)
+		}
+
+		return true, nil
+	})
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryPoolsResponse{Pools: poolsRes, Pagination: pageRes}, nil
+}
+
+// Pool queries the specific pool.
+func (k Querier) Pool(c context.Context, req *types.QueryPoolRequest) (*types.QueryPoolResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PoolId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pool id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
 
 	pool, found := k.GetPool(ctx, req.PoolId)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool %d doesn't exist", req.PoolId)
+		return nil, status.Errorf(codes.NotFound, "pool %d doesn't exist", req.PoolId)
 	}
 
-	return k.MakeQueryLiquidityPoolResponse(pool)
+	rx, ry := k.GetPoolBalances(ctx, pool)
+	poolRes := types.PoolResponse{
+		Id:                    pool.Id,
+		PairId:                pool.PairId,
+		ReserveAddress:        pool.ReserveAddress,
+		PoolCoinDenom:         pool.PoolCoinDenom,
+		Balances:              sdk.NewCoins(rx, ry),
+		LastDepositRequestId:  pool.LastDepositRequestId,
+		LastWithdrawRequestId: pool.LastWithdrawRequestId,
+	}
+
+	return &types.QueryPoolResponse{Pool: poolRes}, nil
 }
 
-// LiquidityPool queries a liquidity pool with the given pool coin denom.
-func (k Querier) LiquidityPoolByPoolCoinDenom(c context.Context, req *types.QueryLiquidityPoolByPoolCoinDenomRequest) (*types.QueryLiquidityPoolResponse, error) {
-	empty := &types.QueryLiquidityPoolByPoolCoinDenomRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// PoolByReserveAddress queries the specific pool by the reserve account address.
+func (k Querier) PoolByReserveAddress(c context.Context, req *types.QueryPoolByReserveAddressRequest) (*types.QueryPoolResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	if req.ReserveAddress == "" {
+		return nil, status.Error(codes.InvalidArgument, "empty reserve account address")
+	}
+
 	ctx := sdk.UnwrapSDKContext(c)
-	reserveAcc, err := types.GetReserveAcc(req.PoolCoinDenom, false)
+
+	reserveAddr, err := sdk.AccAddressFromBech32(req.ReserveAddress)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool with pool coin denom %s doesn't exist", req.PoolCoinDenom)
+		return nil, status.Errorf(codes.InvalidArgument, "reserve account address %s is not valid", req.ReserveAddress)
 	}
-	pool, found := k.GetPoolByReserveAccIndex(ctx, reserveAcc)
+
+	pool, found := k.GetPoolByReserveAddress(ctx, reserveAddr)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool with pool coin denom %s doesn't exist", req.PoolCoinDenom)
+		return nil, status.Errorf(codes.NotFound, "pool by %s doesn't exist", req.ReserveAddress)
 	}
-	return k.MakeQueryLiquidityPoolResponse(pool)
+
+	rx, ry := k.GetPoolBalances(ctx, pool)
+	poolRes := types.PoolResponse{
+		Id:                    pool.Id,
+		PairId:                pool.PairId,
+		ReserveAddress:        pool.ReserveAddress,
+		PoolCoinDenom:         pool.PoolCoinDenom,
+		Balances:              sdk.NewCoins(rx, ry),
+		LastDepositRequestId:  pool.LastDepositRequestId,
+		LastWithdrawRequestId: pool.LastWithdrawRequestId,
+	}
+
+	return &types.QueryPoolResponse{Pool: poolRes}, nil
 }
 
-// LiquidityPool queries a liquidity pool with the given reserve account address.
-func (k Querier) LiquidityPoolByReserveAcc(c context.Context, req *types.QueryLiquidityPoolByReserveAccRequest) (*types.QueryLiquidityPoolResponse, error) {
-	empty := &types.QueryLiquidityPoolByReserveAccRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// PoolByPoolCoinDenom queries the specific pool by the pool coin denomination.
+func (k Querier) PoolByPoolCoinDenom(c context.Context, req *types.QueryPoolByPoolCoinDenomRequest) (*types.QueryPoolResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
+
+	if req.PoolCoinDenom == "" {
+		return nil, status.Error(codes.InvalidArgument, "empty pool coin denom")
+	}
+
 	ctx := sdk.UnwrapSDKContext(c)
-	reserveAcc, err := sdk.AccAddressFromBech32(req.ReserveAcc)
+
+	poolId, err := types.ParsePoolCoinDenom(req.PoolCoinDenom)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "the reserve account address %s is not valid", req.ReserveAcc)
+		return nil, status.Errorf(codes.InvalidArgument, "failed to parse pool coin denom: %v", err)
 	}
-	pool, found := k.GetPoolByReserveAccIndex(ctx, reserveAcc)
+	pool, found := k.GetPool(ctx, poolId)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool with pool reserve account %s doesn't exist", req.ReserveAcc)
+		return nil, status.Errorf(codes.NotFound, "pool %d doesn't exist", poolId)
 	}
-	return k.MakeQueryLiquidityPoolResponse(pool)
+
+	rx, ry := k.GetPoolBalances(ctx, pool)
+	poolRes := types.PoolResponse{
+		Id:                    pool.Id,
+		PairId:                pool.PairId,
+		ReserveAddress:        pool.ReserveAddress,
+		PoolCoinDenom:         pool.PoolCoinDenom,
+		Balances:              sdk.NewCoins(rx, ry),
+		LastDepositRequestId:  pool.LastDepositRequestId,
+		LastWithdrawRequestId: pool.LastWithdrawRequestId,
+	}
+
+	return &types.QueryPoolResponse{Pool: poolRes}, nil
 }
 
-// LiquidityPoolBatch queries a liquidity pool batch with the given pool id.
-func (k Querier) LiquidityPoolBatch(c context.Context, req *types.QueryLiquidityPoolBatchRequest) (*types.QueryLiquidityPoolBatchResponse, error) {
-	empty := &types.QueryLiquidityPoolBatchRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// Pairs queries all pairs.
+func (k Querier) Pairs(c context.Context, req *types.QueryPairsRequest) (*types.QueryPairsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	ctx := sdk.UnwrapSDKContext(c)
-
-	batch, found := k.GetPoolBatch(ctx, req.PoolId)
-	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool batch %d doesn't exist", req.PoolId)
+	if len(req.Denoms) > 2 {
+		return nil, status.Errorf(codes.InvalidArgument, "too many denoms to query: %d", len(req.Denoms))
 	}
 
-	return &types.QueryLiquidityPoolBatchResponse{
-		Batch: batch,
-	}, nil
-}
-
-// Pools queries all liquidity pools currently existed with each liquidity pool with batch and metadata.
-func (k Querier) LiquidityPools(c context.Context, req *types.QueryLiquidityPoolsRequest) (*types.QueryLiquidityPoolsResponse, error) {
-	ctx := sdk.UnwrapSDKContext(c)
-
-	store := ctx.KVStore(k.storeKey)
-	poolStore := prefix.NewStore(store, types.PoolKeyPrefix)
-
-	var pools types.Pools
-
-	pageRes, err := query.Paginate(poolStore, req.Pagination, func(key []byte, value []byte) error {
-		pool, err := types.UnmarshalPool(k.cdc, value)
-		if err != nil {
-			return err
+	for _, denom := range req.Denoms {
+		if err := sdk.ValidateDenom(denom); err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
-		pools = append(pools, pool)
-		return nil
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	store := ctx.KVStore(k.storeKey)
+
+	var keyPrefix []byte
+	var pairGetter func(key, value []byte) types.Pair
+	switch len(req.Denoms) {
+	case 0:
+		keyPrefix = types.PairKeyPrefix
+		pairGetter = func(_, value []byte) types.Pair {
+			return types.MustUnmarshalPair(k.cdc, value)
+		}
+	case 1:
+		keyPrefix = types.GetPairsByDenomIndexKeyPrefix(req.Denoms[0])
+		pairGetter = func(key, _ []byte) types.Pair {
+			_, _, pairId := types.ParsePairsByDenomsIndexKey(append(keyPrefix, key...))
+			pair, _ := k.GetPair(ctx, pairId)
+			return pair
+		}
+	case 2:
+		keyPrefix = types.GetPairsByDenomsIndexKeyPrefix(req.Denoms[0], req.Denoms[1])
+		pairGetter = func(key, _ []byte) types.Pair {
+			_, _, pairId := types.ParsePairsByDenomsIndexKey(append(keyPrefix, key...))
+			pair, _ := k.GetPair(ctx, pairId)
+			return pair
+		}
+	}
+	pairStore := prefix.NewStore(store, keyPrefix)
+
+	var pairs []types.Pair
+	pageRes, err := query.FilteredPaginate(pairStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		pair := pairGetter(key, value)
+
+		if accumulate {
+			pairs = append(pairs, pair)
+		}
+
+		return true, nil
 	})
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if len(pools) == 0 {
-		return nil, status.Error(codes.NotFound, "There are no pools present.")
-	}
-
-	return &types.QueryLiquidityPoolsResponse{
-		Pools:      pools,
-		Pagination: pageRes,
-	}, nil
+	return &types.QueryPairsResponse{Pairs: pairs, Pagination: pageRes}, nil
 }
 
-// PoolBatchSwapMsg queries the pool batch swap message with the message index of the liquidity pool.
-func (k Querier) PoolBatchSwapMsg(c context.Context, req *types.QueryPoolBatchSwapMsgRequest) (*types.QueryPoolBatchSwapMsgResponse, error) {
-	empty := &types.QueryPoolBatchSwapMsgRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// Pair queries the specific pair.
+func (k Querier) Pair(c context.Context, req *types.QueryPairRequest) (*types.QueryPairResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PairId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pair id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
 
-	msg, found := k.GetPoolBatchSwapMsgState(ctx, req.PoolId, req.MsgIndex)
+	pair, found := k.GetPair(ctx, req.PairId)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "the msg given msg_index %d doesn't exist or deleted", req.MsgIndex)
+		return nil, status.Errorf(codes.NotFound, "pair %d doesn't exist", req.PairId)
 	}
 
-	return &types.QueryPoolBatchSwapMsgResponse{
-		Swap: msg,
-	}, nil
+	return &types.QueryPairResponse{Pair: pair}, nil
 }
 
-// PoolBatchSwapMsgs queries all pool batch swap messages of the liquidity pool.
-func (k Querier) PoolBatchSwapMsgs(c context.Context, req *types.QueryPoolBatchSwapMsgsRequest) (*types.QueryPoolBatchSwapMsgsResponse, error) {
-	empty := &types.QueryPoolBatchSwapMsgsRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// DepositRequests queries all deposit requests.
+func (k Querier) DepositRequests(c context.Context, req *types.QueryDepositRequestsRequest) (*types.QueryDepositRequestsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PoolId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pool id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
-
-	_, found := k.GetPool(ctx, req.PoolId)
-	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool %d doesn't exist", req.PoolId)
-	}
-
 	store := ctx.KVStore(k.storeKey)
-	msgStore := prefix.NewStore(store, types.GetPoolBatchSwapMsgStatesPrefix(req.PoolId))
+	drsStore := prefix.NewStore(store, types.DepositRequestKeyPrefix)
 
-	var msgs []types.SwapMsgState
-
-	pageRes, err := query.Paginate(msgStore, req.Pagination, func(key []byte, value []byte) error {
-		msg, err := types.UnmarshalSwapMsgState(k.cdc, value)
+	var drs []types.DepositRequest
+	pageRes, err := query.FilteredPaginate(drsStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		dr, err := types.UnmarshalDepositRequest(k.cdc, value)
 		if err != nil {
-			return err
+			return false, err
 		}
 
-		msgs = append(msgs, msg)
+		if dr.PoolId != req.PoolId {
+			return false, nil
+		}
 
-		return nil
+		if accumulate {
+			drs = append(drs, dr)
+		}
+
+		return true, nil
 	})
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &types.QueryPoolBatchSwapMsgsResponse{
-		Swaps:      msgs,
-		Pagination: pageRes,
-	}, nil
+	return &types.QueryDepositRequestsResponse{DepositRequests: drs, Pagination: pageRes}, nil
 }
 
-// PoolBatchDepositMsg queries the pool batch deposit message with the msg_index of the liquidity pool.
-func (k Querier) PoolBatchDepositMsg(c context.Context, req *types.QueryPoolBatchDepositMsgRequest) (*types.QueryPoolBatchDepositMsgResponse, error) {
-	empty := &types.QueryPoolBatchDepositMsgRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// DepositRequest queries the specific deposit request.
+func (k Querier) DepositRequest(c context.Context, req *types.QueryDepositRequestRequest) (*types.QueryDepositRequestResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PoolId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pool id cannot be 0")
+	}
+
+	if req.Id == 0 {
+		return nil, status.Error(codes.InvalidArgument, "id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
 
-	msg, found := k.GetPoolBatchDepositMsgState(ctx, req.PoolId, req.MsgIndex)
+	dq, found := k.GetDepositRequest(ctx, req.PoolId, req.Id)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "the msg given msg_index %d doesn't exist or deleted", req.MsgIndex)
+		return nil, status.Errorf(codes.NotFound, "deposit request of pool id %d and request id %d doesn't exist or deleted", req.PoolId, req.Id)
 	}
 
-	return &types.QueryPoolBatchDepositMsgResponse{
-		Deposit: msg,
-	}, nil
+	return &types.QueryDepositRequestResponse{DepositRequest: dq}, nil
 }
 
-// PoolBatchDepositMsgs queries all pool batch deposit messages of the liquidity pool.
-func (k Querier) PoolBatchDepositMsgs(c context.Context, req *types.QueryPoolBatchDepositMsgsRequest) (*types.QueryPoolBatchDepositMsgsResponse, error) {
-	empty := &types.QueryPoolBatchDepositMsgsRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// WithdrawRequests queries all withdraw requests.
+func (k Querier) WithdrawRequests(c context.Context, req *types.QueryWithdrawRequestsRequest) (*types.QueryWithdrawRequestsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PoolId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pool id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
-
-	_, found := k.GetPool(ctx, req.PoolId)
-	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool %d doesn't exist", req.PoolId)
-	}
-
 	store := ctx.KVStore(k.storeKey)
-	msgStore := prefix.NewStore(store, types.GetPoolBatchDepositMsgStatesPrefix(req.PoolId))
-	var msgs []types.DepositMsgState
+	drsStore := prefix.NewStore(store, types.WithdrawRequestKeyPrefix)
 
-	pageRes, err := query.Paginate(msgStore, req.Pagination, func(key []byte, value []byte) error {
-		msg, err := types.UnmarshalDepositMsgState(k.cdc, value)
+	var wrs []types.WithdrawRequest
+	pageRes, err := query.FilteredPaginate(drsStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		wr, err := types.UnmarshalWithdrawRequest(k.cdc, value)
 		if err != nil {
-			return err
+			return false, err
 		}
 
-		msgs = append(msgs, msg)
+		if wr.PoolId != req.PoolId {
+			return false, nil
+		}
 
-		return nil
+		if accumulate {
+			wrs = append(wrs, wr)
+		}
+
+		return true, nil
 	})
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &types.QueryPoolBatchDepositMsgsResponse{
-		Deposits:   msgs,
-		Pagination: pageRes,
-	}, nil
+	return &types.QueryWithdrawRequestsResponse{WithdrawRequests: wrs, Pagination: pageRes}, nil
 }
 
-// PoolBatchWithdrawMsg queries the pool batch withdraw message with the msg_index of the liquidity pool.
-func (k Querier) PoolBatchWithdrawMsg(c context.Context, req *types.QueryPoolBatchWithdrawMsgRequest) (*types.QueryPoolBatchWithdrawMsgResponse, error) {
-	empty := &types.QueryPoolBatchWithdrawMsgRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// WithdrawRequest queries the specific withdraw request.
+func (k Querier) WithdrawRequest(c context.Context, req *types.QueryWithdrawRequestRequest) (*types.QueryWithdrawRequestResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PoolId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pool id cannot be 0")
+	}
+
+	if req.Id == 0 {
+		return nil, status.Error(codes.InvalidArgument, "id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
 
-	msg, found := k.GetPoolBatchWithdrawMsgState(ctx, req.PoolId, req.MsgIndex)
+	wq, found := k.GetWithdrawRequest(ctx, req.PoolId, req.Id)
 	if !found {
-		return nil, status.Errorf(codes.NotFound, "the msg given msg_index %d doesn't exist or deleted", req.MsgIndex)
+		return nil, status.Errorf(codes.NotFound, "withdraw request of pool id %d and request id %d doesn't exist or deleted", req.PoolId, req.Id)
 	}
 
-	return &types.QueryPoolBatchWithdrawMsgResponse{
-		Withdraw: msg,
-	}, nil
+	return &types.QueryWithdrawRequestResponse{WithdrawRequest: wq}, nil
 }
 
-// PoolBatchWithdrawMsgs queries all pool batch withdraw messages of the liquidity pool.
-func (k Querier) PoolBatchWithdrawMsgs(c context.Context, req *types.QueryPoolBatchWithdrawMsgsRequest) (*types.QueryPoolBatchWithdrawMsgsResponse, error) {
-	empty := &types.QueryPoolBatchWithdrawMsgsRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// Orders queries all orders.
+func (k Querier) Orders(c context.Context, req *types.QueryOrdersRequest) (*types.QueryOrdersResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.PairId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pair id cannot be 0")
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
-
-	_, found := k.GetPool(ctx, req.PoolId)
-	if !found {
-		return nil, status.Errorf(codes.NotFound, "liquidity pool %d doesn't exist", req.PoolId)
-	}
-
 	store := ctx.KVStore(k.storeKey)
-	msgStore := prefix.NewStore(store, types.GetPoolBatchWithdrawMsgsPrefix(req.PoolId))
-	var msgs []types.WithdrawMsgState
+	drsStore := prefix.NewStore(store, types.OrderKeyPrefix)
 
-	pageRes, err := query.Paginate(msgStore, req.Pagination, func(key []byte, value []byte) error {
-		msg, err := types.UnmarshalWithdrawMsgState(k.cdc, value)
+	var orders []types.Order
+	pageRes, err := query.FilteredPaginate(drsStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		order, err := types.UnmarshalOrder(k.cdc, value)
 		if err != nil {
-			return err
+			return false, err
 		}
 
-		msgs = append(msgs, msg)
+		if order.PairId != req.PairId {
+			return false, nil
+		}
 
-		return nil
+		if accumulate {
+			orders = append(orders, order)
+		}
+
+		return true, nil
 	})
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &types.QueryPoolBatchWithdrawMsgsResponse{
-		Withdraws:  msgs,
-		Pagination: pageRes,
-	}, nil
+	return &types.QueryOrdersResponse{Orders: orders, Pagination: pageRes}, nil
 }
 
-// Params queries params of liquidity module.
-func (k Querier) Params(c context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
-	ctx := sdk.UnwrapSDKContext(c)
-	params := k.GetParams(ctx)
-
-	return &types.QueryParamsResponse{
-		Params: params,
-	}, nil
-}
-
-// MakeQueryLiquidityPoolResponse wraps MakeQueryLiquidityPoolResponse.
-func (k Querier) MakeQueryLiquidityPoolResponse(pool types.Pool) (*types.QueryLiquidityPoolResponse, error) {
-	return &types.QueryLiquidityPoolResponse{
-		Pool: pool,
-	}, nil
-}
-
-// MakeQueryLiquidityPoolsResponse wraps a list of QueryLiquidityPoolResponses.
-func (k Querier) MakeQueryLiquidityPoolsResponse(pools types.Pools) (*[]types.QueryLiquidityPoolResponse, error) {
-	resp := make([]types.QueryLiquidityPoolResponse, len(pools))
-	for i, pool := range pools {
-		res := types.QueryLiquidityPoolResponse{
-			Pool: pool,
-		}
-		resp[i] = res
+// Order queries the specific order.
+func (k Querier) Order(c context.Context, req *types.QueryOrderRequest) (*types.QueryOrderResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
-	return &resp, nil
-}
 
-func (k Querier) UserPoolsContribution(c context.Context, req *types.QueryUserPoolsContributionMsgRequest) (*types.QueryUserPoolsContributionMsgResponse, error) {
-
-	empty := &types.QueryUserPoolsContributionMsgRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+	if req.PairId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "pair id cannot be 0")
 	}
-	ctx := sdk.UnwrapSDKContext(c)
-	userDetails, found := k.GetIndividualUserPoolsData(ctx, sdk.AccAddress(req.UserAddress))
 
+	if req.Id == 0 {
+		return nil, status.Error(codes.InvalidArgument, "id cannot be 0")
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+
+	order, found := k.GetOrder(ctx, req.PairId, req.Id)
 	if !found {
-		// return nil, status.Errorf(codes.NotFound, "User not providing liquidity in any pools")
-		return &types.QueryUserPoolsContributionMsgResponse{
-			UserPoolData: userDetails,
-		}, nil
+		return nil, status.Errorf(codes.NotFound, "order %d in pair %d not found", req.PairId, req.Id)
 	}
 
-	return &types.QueryUserPoolsContributionMsgResponse{
-		UserPoolData: userDetails,
-	}, nil
+	return &types.QueryOrderResponse{Order: order}, nil
 }
 
-func (k Querier) AllUserPoolsContribution(c context.Context, req *types.QueryAllUsersPoolsContributionMsgRequest) (*types.QueryAllUsersPoolsContributionMsgResponse, error) {
-
-	empty := &types.QueryAllUsersPoolsContributionMsgRequest{}
-	if req == nil || *req == *empty {
-		return nil, status.Errorf(codes.InvalidArgument, "empty request")
+// OrdersByOrderer returns orders made by an orderer.
+func (k Querier) OrdersByOrderer(c context.Context, req *types.QueryOrdersByOrdererRequest) (*types.QueryOrdersResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
-	ctx := sdk.UnwrapSDKContext(c)
-	allUsersDetails := k.GetAllUsersPoolsData(ctx)
 
-	return &types.QueryAllUsersPoolsContributionMsgResponse{
-		UserPoolData: allUsersDetails,
-	}, nil
+	orderer, err := sdk.AccAddressFromBech32(req.Orderer)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "orderer address %s is invalid", req.Orderer)
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	store := ctx.KVStore(k.storeKey)
+
+	keyPrefix := types.GetOrderIndexKeyPrefix(orderer)
+	orderStore := prefix.NewStore(store, keyPrefix)
+	var orders []types.Order
+	pageRes, err := query.FilteredPaginate(orderStore, req.Pagination, func(key, value []byte, accumulate bool) (bool, error) {
+		_, pairId, orderId := types.ParseOrderIndexKey(append(keyPrefix, key...))
+		if req.PairId != 0 && pairId != req.PairId {
+			return false, nil
+		}
+
+		order, _ := k.GetOrder(ctx, pairId, orderId)
+
+		if accumulate {
+			orders = append(orders, order)
+		}
+
+		return true, nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &types.QueryOrdersResponse{Orders: orders, Pagination: pageRes}, nil
 }

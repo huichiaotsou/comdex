@@ -1,14 +1,7 @@
 package keeper
 
-// DONTCOVER
-
-// Although written in msg_server_test.go, it is approached at the keeper level rather than at the msgServer level
-// so is not included in the coverage.
-
 import (
 	"context"
-	"fmt"
-	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -19,7 +12,7 @@ type msgServer struct {
 	Keeper
 }
 
-// NewMsgServerImpl returns an implementation of the distribution MsgServer interface
+// NewMsgServerImpl returns an implementation of the MsgServer interface
 // for the provided Keeper.
 func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 	return &msgServer{Keeper: keeper}
@@ -27,227 +20,90 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 
 var _ types.MsgServer = msgServer{}
 
-// Message server, handler for CreatePool msg
-func (k msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (*types.MsgCreatePoolResponse, error) {
+// CreatePair defines a method to create a pair.
+func (m msgServer) CreatePair(goCtx context.Context, msg *types.MsgCreatePair) (*types.MsgCreatePairResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	if k.GetCircuitBreakerEnabled(ctx) {
-		return nil, types.ErrCircuitBreakerEnabled
-	}
-
-	pool, err := k.Keeper.CreatePool(ctx, msg)
-	if err != nil {
+	if _, err := m.Keeper.CreatePair(ctx, msg); err != nil {
 		return nil, err
 	}
 
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
-		),
-		sdk.NewEvent(
-			types.EventTypeCreatePool,
-			sdk.NewAttribute(types.AttributeValuePoolId, strconv.FormatUint(pool.Id, 10)),
-			sdk.NewAttribute(types.AttributeValuePoolTypeId, fmt.Sprintf("%d", msg.PoolTypeId)),
-			sdk.NewAttribute(types.AttributeValuePoolName, pool.Name()),
-			sdk.NewAttribute(types.AttributeValueReserveAccount, pool.ReserveAccountAddress),
-			sdk.NewAttribute(types.AttributeValueDepositCoins, msg.DepositCoins.String()),
-			sdk.NewAttribute(types.AttributeValuePoolCoinDenom, pool.PoolCoinDenom),
-		),
-	})
+	return &types.MsgCreatePairResponse{}, nil
+}
+
+// CreatePool defines a method to create a liquidity pool.
+func (m msgServer) CreatePool(goCtx context.Context, msg *types.MsgCreatePool) (*types.MsgCreatePoolResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if _, err := m.Keeper.CreatePool(ctx, msg); err != nil {
+		return nil, err
+	}
 
 	return &types.MsgCreatePoolResponse{}, nil
 }
 
-// Message server, handler for MsgDepositWithinBatch
-func (k msgServer) DepositWithinBatch(goCtx context.Context, msg *types.MsgDepositWithinBatch) (*types.MsgDepositWithinBatchResponse, error) {
+// Deposit defines a method to deposit coins to the pool.
+func (m msgServer) Deposit(goCtx context.Context, msg *types.MsgDeposit) (*types.MsgDepositResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	if k.GetCircuitBreakerEnabled(ctx) {
-		return nil, types.ErrCircuitBreakerEnabled
-	}
-
-	poolBatch, found := k.GetPoolBatch(ctx, msg.PoolId)
-	if !found {
-		return nil, types.ErrPoolBatchNotExists
-	}
-
-	batchMsg, err := k.Keeper.DepositWithinBatch(ctx, msg)
-	if err != nil {
+	if _, err := m.Keeper.Deposit(ctx, msg); err != nil {
 		return nil, err
 	}
 
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
-		),
-		sdk.NewEvent(
-			types.EventTypeDepositWithinBatch,
-			sdk.NewAttribute(types.AttributeValuePoolId, strconv.FormatUint(batchMsg.Msg.PoolId, 10)),
-			sdk.NewAttribute(types.AttributeValueBatchIndex, strconv.FormatUint(poolBatch.Index, 10)),
-			sdk.NewAttribute(types.AttributeValueMsgIndex, strconv.FormatUint(batchMsg.MsgIndex, 10)),
-			sdk.NewAttribute(types.AttributeValueDepositCoins, batchMsg.Msg.DepositCoins.String()),
-		),
-	})
-
-	return &types.MsgDepositWithinBatchResponse{}, nil
+	return &types.MsgDepositResponse{}, nil
 }
 
-// Message server, handler for MsgWithdrawWithinBatch
-func (k msgServer) WithdrawWithinBatch(goCtx context.Context, msg *types.MsgWithdrawWithinBatch) (*types.MsgWithdrawWithinBatchResponse, error) {
+// Withdraw defines a method to withdraw pool coin from the pool.
+func (m msgServer) Withdraw(goCtx context.Context, msg *types.MsgWithdraw) (*types.MsgWithdrawResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	poolBatch, found := k.GetPoolBatch(ctx, msg.PoolId)
-	if !found {
-		return nil, types.ErrPoolBatchNotExists
-	}
-
-	batchMsg, err := k.Keeper.WithdrawWithinBatch(ctx, msg)
-	if err != nil {
+	if _, err := m.Keeper.Withdraw(ctx, msg); err != nil {
 		return nil, err
 	}
 
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
-		),
-		sdk.NewEvent(
-			types.EventTypeWithdrawWithinBatch,
-			sdk.NewAttribute(types.AttributeValuePoolId, strconv.FormatUint(batchMsg.Msg.PoolId, 10)),
-			sdk.NewAttribute(types.AttributeValueBatchIndex, strconv.FormatUint(poolBatch.Index, 10)),
-			sdk.NewAttribute(types.AttributeValueMsgIndex, strconv.FormatUint(batchMsg.MsgIndex, 10)),
-			sdk.NewAttribute(types.AttributeValuePoolCoinDenom, batchMsg.Msg.PoolCoin.Denom),
-			sdk.NewAttribute(types.AttributeValuePoolCoinAmount, batchMsg.Msg.PoolCoin.Amount.String()),
-		),
-	})
-
-	return &types.MsgWithdrawWithinBatchResponse{}, nil
+	return &types.MsgWithdrawResponse{}, nil
 }
 
-// Message server, handler for MsgSwapWithinBatch
-func (k msgServer) Swap(goCtx context.Context, msg *types.MsgSwapWithinBatch) (*types.MsgSwapWithinBatchResponse, error) {
+// LimitOrder defines a method to making a limit order.
+func (m msgServer) LimitOrder(goCtx context.Context, msg *types.MsgLimitOrder) (*types.MsgLimitOrderResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	if k.GetCircuitBreakerEnabled(ctx) {
-		return nil, types.ErrCircuitBreakerEnabled
-	}
-
-	poolBatch, found := k.GetPoolBatch(ctx, msg.PoolId)
-	if !found {
-		return nil, types.ErrPoolBatchNotExists
-	}
-
-	batchMsg, err := k.Keeper.SwapWithinBatch(ctx, msg, types.CancelOrderLifeSpan)
-	if err != nil {
+	if _, err := m.Keeper.LimitOrder(ctx, msg); err != nil {
 		return nil, err
 	}
 
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.AttributeValueCategory),
-		),
-		sdk.NewEvent(
-			types.EventTypeSwapWithinBatch,
-			sdk.NewAttribute(types.AttributeValuePoolId, strconv.FormatUint(batchMsg.Msg.PoolId, 10)),
-			sdk.NewAttribute(types.AttributeValueBatchIndex, strconv.FormatUint(poolBatch.Index, 10)),
-			sdk.NewAttribute(types.AttributeValueMsgIndex, strconv.FormatUint(batchMsg.MsgIndex, 10)),
-			sdk.NewAttribute(types.AttributeValueSwapTypeId, strconv.FormatUint(uint64(batchMsg.Msg.SwapTypeId), 10)),
-			sdk.NewAttribute(types.AttributeValueOfferCoinDenom, batchMsg.Msg.OfferCoin.Denom),
-			sdk.NewAttribute(types.AttributeValueOfferCoinAmount, batchMsg.Msg.OfferCoin.Amount.String()),
-			sdk.NewAttribute(types.AttributeValueOfferCoinFeeAmount, batchMsg.Msg.OfferCoinFee.Amount.String()),
-			sdk.NewAttribute(types.AttributeValueDemandCoinDenom, batchMsg.Msg.DemandCoinDenom),
-			sdk.NewAttribute(types.AttributeValueOrderPrice, batchMsg.Msg.OrderPrice.String()),
-		),
-	})
-	return &types.MsgSwapWithinBatchResponse{}, nil
+	return &types.MsgLimitOrderResponse{}, nil
 }
 
-func (k msgServer) BondPoolTokens(goCtx context.Context, msg *types.MsgBondPoolTokens) (*types.MsgBondPoolTokensResponse, error) {
-
+// MarketOrder defines a method to making a market order.
+func (m msgServer) MarketOrder(goCtx context.Context, msg *types.MsgMarketOrder) (*types.MsgMarketOrderResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if k.GetCircuitBreakerEnabled(ctx) {
-		return nil, types.ErrCircuitBreakerEnabled
-	}
-	//IF user has provided liquidity to any given pool
-	userPoolsData, found := k.GetIndividualUserPoolsData(ctx, sdk.AccAddress(msg.UserAddress))
-	if !found {
-		return nil, types.ErrUserNotHavingLiquidityInPools
-	}
-	//If user has provided liquidity to the pool he has entered
-	poolExists := k.GetUserPoolsContributionData(userPoolsData, msg.PoolId)
-	if !poolExists {
-		return nil, types.ErrUserNotHavingLiquidityInCurrentPool
-	}
-	for _, pool := range userPoolsData.UserPoolWiseData {
 
-		if pool.PoolId == msg.PoolId {
-			//Check if that amount of  unbonded token exists ,
-			//If exists , then bond user tokens.
-			//Remove from unbonded section
-			if pool.UnbondedPoolCoin.GTE(msg.PoolCoin.Amount) {
-				updatedBondedTokens := msg.PoolCoin.Amount
-				updatedUnBondedTokens := pool.UnbondedPoolCoin.Sub(msg.PoolCoin.Amount)
-				pool.BondedPoolCoin = &updatedBondedTokens
-				pool.UnbondedPoolCoin = &updatedUnBondedTokens
-
-			} else {
-				return nil, types.ErrNotEnoughCoinsForBonding
-			}
-
-		} else {
-			continue
-		}
+	if _, err := m.Keeper.MarketOrder(ctx, msg); err != nil {
+		return nil, err
 	}
-	k.SetIndividualUserPoolsData(ctx, userPoolsData)
 
-	return &types.MsgBondPoolTokensResponse{}, nil
+	return &types.MsgMarketOrderResponse{}, nil
 }
 
-func (k msgServer) UnbondPoolTokens(goCtx context.Context, msg *types.MsgUnbondPoolTokens) (*types.MsgUnbondPoolTokensResponse, error) {
-
+// CancelOrder defines a method to cancel an order.
+func (m msgServer) CancelOrder(goCtx context.Context, msg *types.MsgCancelOrder) (*types.MsgCancelOrderResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	if k.GetCircuitBreakerEnabled(ctx) {
-		return nil, types.ErrCircuitBreakerEnabled
-	}
-	//If user has provided liquidity to any pool
-	userPoolsData, found := k.GetIndividualUserPoolsData(ctx, sdk.AccAddress(msg.UserAddress))
-	if !found {
-		return nil, types.ErrUserNotHavingLiquidityInPools
-	}
-	//If user has provided liquidity to the pool he has entered
-	poolExists := k.GetUserPoolsContributionData(userPoolsData, msg.PoolId)
-	if !poolExists {
-		return nil, types.ErrUserNotHavingLiquidityInCurrentPool
-	}
-	for _, pool := range userPoolsData.UserPoolWiseData {
 
-		if pool.PoolId == msg.PoolId {
-			//Check if that amount of  bonded token exists,
-			//If exists , then unbond user tokens.
-			//Remove from bonded section
-			if pool.BondedPoolCoin.GTE(msg.PoolCoin.Amount) {
-				var userUnbondingTokens types.UserPoolUnbondingTokens
-				userUnbondingTokens.IsUnbondingPoolCoin = &msg.PoolCoin.Amount
-				//Check for mistakes in these values
-				userUnbondingTokens.UnbondingStartTime = ctx.BlockTime()                            //Check for current second value
-				userUnbondingTokens.UnbondingEndTime = k.CalculateUnbondingEndTime(ctx,ctx.BlockTime()) //Ending Time after the unbonding time will get over
-				updatedBondedTokens := pool.BondedPoolCoin.Sub(msg.PoolCoin.Amount)
-				pool.BondedPoolCoin = &updatedBondedTokens
-				pool.UserPoolUnbondingTokens = append(pool.UserPoolUnbondingTokens, &userUnbondingTokens)
-
-			} else {
-				return nil, types.ErrNotEnoughCoinsForUnBonding
-			}
-
-		} else {
-			continue
-		}
+	if err := m.Keeper.CancelOrder(ctx, msg); err != nil {
+		return nil, err
 	}
 
-	k.SetIndividualUserPoolsData(ctx, userPoolsData)
+	return &types.MsgCancelOrderResponse{}, nil
+}
 
-	return &types.MsgUnbondPoolTokensResponse{}, nil
+// CancelAllOrders defines a method to cancel all orders.
+func (m msgServer) CancelAllOrders(goCtx context.Context, msg *types.MsgCancelAllOrders) (*types.MsgCancelAllOrdersResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if err := m.Keeper.CancelAllOrders(ctx, msg); err != nil {
+		return nil, err
+	}
+
+	return &types.MsgCancelAllOrdersResponse{}, nil
 }

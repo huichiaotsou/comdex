@@ -59,7 +59,7 @@ go-lint:
 .PHONY: mod-vendor
 mod-vendor: tools
 	@go mod vendor
-	@modvendor -copy="**/*.proto" -include=github.com/cosmos/cosmos-sdk/proto,github.com/cosmos/cosmos-sdk/third_party/proto,github.com/cosmos/ibc-go/v2/proto
+	@modvendor -copy="**/*.proto" -include=github.com/cosmos/cosmos-sdk/proto,github.com/cosmos/cosmos-sdk/third_party/proto,github.com/cosmos/ibc-go/v2/proto,github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 
 .PHONY: proto-gen
 proto-gen:
