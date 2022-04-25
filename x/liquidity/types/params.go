@@ -6,8 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
-
-	farmingtypes "github.com/comdex-official/comdex/x/farming/types"
 )
 
 // Liquidity params default values
@@ -19,8 +17,8 @@ const (
 
 // Liquidity params default values
 var (
-	DefaultFeeCollectorAddress      = farmingtypes.DeriveAddress(AddressType, ModuleName, "FeeCollector")
-	DefaultDustCollectorAddress     = farmingtypes.DeriveAddress(AddressType, ModuleName, "DustCollector")
+	DefaultFeeCollectorAddress      = DeriveAddress(AddressType32Bytes, ModuleName, "FeeCollector")
+	DefaultDustCollectorAddress     = DeriveAddress(AddressType32Bytes, ModuleName, "DustCollector")
 	DefaultMinInitialPoolCoinSupply = sdk.NewInt(1_000_000_000_000)
 	DefaultPairCreationFee          = sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1000000))
 	DefaultPoolCreationFee          = sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1000000))
@@ -38,12 +36,11 @@ const (
 	PoolReserveAddressPrefix  = "PoolReserveAddress"
 	PairEscrowAddressPrefix   = "PairEscrowAddress"
 	ModuleAddressNameSplitter = "|"
-	AddressType               = farmingtypes.AddressType32Bytes
 )
 
 var (
 	// GlobalEscrowAddress is an escrow for deposit/withdraw requests.
-	GlobalEscrowAddress = farmingtypes.DeriveAddress(AddressType, ModuleName, "GlobalEscrow")
+	GlobalEscrowAddress = DeriveAddress(AddressType32Bytes, ModuleName, "GlobalEscrow")
 )
 
 var (

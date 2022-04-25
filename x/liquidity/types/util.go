@@ -2,7 +2,9 @@ package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/tendermint/tendermint/crypto"
 
 	"github.com/comdex-official/comdex/x/liquidity/amm"
 	"github.com/comdex-official/comdex/x/liquidity/expected"
@@ -42,4 +44,17 @@ func (op *BulkSendCoinsOperation) Run(ctx sdk.Context, bankKeeper expected.BankK
 // matching, based on the order price.
 func IsTooSmallOrderAmount(amt sdk.Int, price sdk.Dec) bool {
 	return amt.LT(amm.MinCoinAmount) || price.MulInt(amt).LT(amm.MinCoinAmount.ToDec())
+}
+
+// DeriveAddress derives an address with the given address length type, module name, and
+// address derivation name. It is used to derive private plan farming pool address, and staking reserve address.
+func DeriveAddress(addressType AddressType, moduleName, name string) sdk.AccAddress {
+	switch addressType {
+	case AddressType32Bytes:
+		return sdk.AccAddress(address.Module(moduleName, []byte(name)))
+	case AddressType20Bytes:
+		return sdk.AccAddress(crypto.AddressHash([]byte(moduleName + name)))
+	default:
+		return sdk.AccAddress{}
+	}
 }

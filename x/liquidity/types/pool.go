@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	farmingtypes "github.com/comdex-official/comdex/x/farming/types"
 	"github.com/comdex-official/comdex/x/liquidity/amm"
 )
 
@@ -21,8 +20,8 @@ var (
 
 // PoolReserveAddress returns a unique pool reserve account address for each pool.
 func PoolReserveAddress(poolId uint64) sdk.AccAddress {
-	return farmingtypes.DeriveAddress(
-		AddressType,
+	return DeriveAddress(
+		AddressType32Bytes,
 		ModuleName,
 		strings.Join([]string{PoolReserveAddressPrefix, strconv.FormatUint(poolId, 10)}, ModuleAddressNameSplitter),
 	)
