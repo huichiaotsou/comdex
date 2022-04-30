@@ -1,13 +1,14 @@
 package app
 
 import (
+	"io"
+	"os"
+	"path/filepath"
+
 	"github.com/CosmWasm/wasmd/x/wasm"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
-	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -157,27 +158,27 @@ type App struct {
 	mkeys map[string]*sdk.MemoryStoreKey
 
 	// keepers
-	accountKeeper     authkeeper.AccountKeeper
-	freegrantKeeper   freegrantkeeper.Keeper
-	bankKeeper        bankkeeper.Keeper
+	AccountKeeper     authkeeper.AccountKeeper
+	FreegrantKeeper   freegrantkeeper.Keeper
+	BankKeeper        bankkeeper.Keeper
 	capabilityKeeper  *capabilitykeeper.Keeper
-	stakingKeeper     stakingkeeper.Keeper
-	slashingKeeper    slashingkeeper.Keeper
-	mintKeeper        mintkeeper.Keeper
-	distrKeeper       distrkeeper.Keeper
-	govKeeper         govkeeper.Keeper
+	StakingKeeper     stakingkeeper.Keeper
+	SlashingKeeper    slashingkeeper.Keeper
+	MintKeeper        mintkeeper.Keeper
+	DistrKeeper       distrkeeper.Keeper
+	GovKeeper         govkeeper.Keeper
 	crisisKeeper      crisiskeeper.Keeper
 	upgradeKeeper     upgradekeeper.Keeper
-	paramsKeeper      paramskeeper.Keeper
-	ibcKeeper         *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
+	ParamsKeeper      paramskeeper.Keeper
+	IbcKeeper         *ibckeeper.Keeper // IBC Keeper must be a pointer in the app, so we can SetRouter on it correctly
 	evidenceKeeper    evidencekeeper.Keeper
-	ibcTransferKeeper ibctransferkeeper.Keeper
+	IbcTransferKeeper ibctransferkeeper.Keeper
 
 	// make scoped keepers public for test purposes
 	scopedIBCKeeper         capabilitykeeper.ScopedKeeper
 	scopedIBCTransferKeeper capabilitykeeper.ScopedKeeper
 	scopedWasmKeeper        capabilitykeeper.ScopedKeeper
-	wasmKeeper              wasm.Keeper
+	WasmKeeper              wasm.Keeper
 	// the module manager
 	mm *module.Manager
 	// Module configurator
@@ -226,29 +227,29 @@ func New(
 		mkeys:             mkeys,
 	}
 
-	app.paramsKeeper = paramskeeper.NewKeeper(
+	app.ParamsKeeper = paramskeeper.NewKeeper(
 		app.cdc,
 		app.amino,
 		app.keys[paramstypes.StoreKey],
 		app.tkeys[paramstypes.TStoreKey],
 	)
 
-	app.paramsKeeper.Subspace(authtypes.ModuleName)
-	app.paramsKeeper.Subspace(banktypes.ModuleName)
-	app.paramsKeeper.Subspace(stakingtypes.ModuleName)
-	app.paramsKeeper.Subspace(minttypes.ModuleName)
-	app.paramsKeeper.Subspace(distrtypes.ModuleName)
-	app.paramsKeeper.Subspace(slashingtypes.ModuleName)
-	app.paramsKeeper.Subspace(govtypes.ModuleName).
+	app.ParamsKeeper.Subspace(authtypes.ModuleName)
+	app.ParamsKeeper.Subspace(banktypes.ModuleName)
+	app.ParamsKeeper.Subspace(stakingtypes.ModuleName)
+	app.ParamsKeeper.Subspace(minttypes.ModuleName)
+	app.ParamsKeeper.Subspace(distrtypes.ModuleName)
+	app.ParamsKeeper.Subspace(slashingtypes.ModuleName)
+	app.ParamsKeeper.Subspace(govtypes.ModuleName).
 		WithKeyTable(govtypes.ParamKeyTable())
-	app.paramsKeeper.Subspace(crisistypes.ModuleName)
-	app.paramsKeeper.Subspace(ibctransfertypes.ModuleName)
-	app.paramsKeeper.Subspace(ibchost.ModuleName)
-	app.paramsKeeper.Subspace(wasmtypes.ModuleName)
+	app.ParamsKeeper.Subspace(crisistypes.ModuleName)
+	app.ParamsKeeper.Subspace(ibctransfertypes.ModuleName)
+	app.ParamsKeeper.Subspace(ibchost.ModuleName)
+	app.ParamsKeeper.Subspace(wasmtypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	baseApp.SetParamStore(
-		app.paramsKeeper.
+		app.ParamsKeeper.
 			Subspace(baseapp.Paramspace).
 			WithKeyTable(paramskeeper.ConsensusParamsKeyTable()),
 	)
@@ -268,47 +269,47 @@ func New(
 	)
 
 	// add keepers
-	app.accountKeeper = authkeeper.NewAccountKeeper(
+	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		app.cdc,
 		app.keys[authtypes.StoreKey],
 		app.GetSubspace(authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
 		app.ModuleAccountsPermissions(),
 	)
-	app.bankKeeper = bankkeeper.NewBaseKeeper(
+	app.BankKeeper = bankkeeper.NewBaseKeeper(
 		app.cdc,
 		app.keys[banktypes.StoreKey],
-		app.accountKeeper,
+		app.AccountKeeper,
 		app.GetSubspace(banktypes.ModuleName),
 		app.ModuleAccountAddrs(),
 	)
 	stakingKeeper := stakingkeeper.NewKeeper(
 		app.cdc,
 		app.keys[stakingtypes.StoreKey],
-		app.accountKeeper,
-		app.bankKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
 		app.GetSubspace(stakingtypes.ModuleName),
 	)
-	app.mintKeeper = mintkeeper.NewKeeper(
+	app.MintKeeper = mintkeeper.NewKeeper(
 		app.cdc,
 		app.keys[minttypes.StoreKey],
 		app.GetSubspace(minttypes.ModuleName),
 		&stakingKeeper,
-		app.accountKeeper,
-		app.bankKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
 		authtypes.FeeCollectorName,
 	)
-	app.distrKeeper = distrkeeper.NewKeeper(
+	app.DistrKeeper = distrkeeper.NewKeeper(
 		app.cdc,
 		app.keys[distrtypes.StoreKey],
 		app.GetSubspace(distrtypes.ModuleName),
-		app.accountKeeper,
-		app.bankKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
 		&stakingKeeper,
 		authtypes.FeeCollectorName,
 		app.ModuleAccountAddrs(),
 	)
-	app.slashingKeeper = slashingkeeper.NewKeeper(
+	app.SlashingKeeper = slashingkeeper.NewKeeper(
 		app.cdc,
 		app.keys[slashingtypes.StoreKey],
 		&stakingKeeper,
@@ -317,7 +318,7 @@ func New(
 	app.crisisKeeper = crisiskeeper.NewKeeper(
 		app.GetSubspace(crisistypes.ModuleName),
 		invCheckPeriod,
-		app.bankKeeper,
+		app.BankKeeper,
 		authtypes.FeeCollectorName,
 	)
 	app.upgradeKeeper = upgradekeeper.NewKeeper(
@@ -330,19 +331,19 @@ func New(
 	app.registerUpgradeHandlers()
 	// register the staking hooks
 	// NOTE: stakingKeeper above is passed by reference, so that it will contain these hooks
-	app.stakingKeeper = *stakingKeeper.SetHooks(
+	app.StakingKeeper = *stakingKeeper.SetHooks(
 		stakingtypes.NewMultiStakingHooks(
-			app.distrKeeper.Hooks(),
-			app.slashingKeeper.Hooks(),
+			app.DistrKeeper.Hooks(),
+			app.SlashingKeeper.Hooks(),
 		),
 	)
 
 	// Create IBC Keeper
-	app.ibcKeeper = ibckeeper.NewKeeper(
+	app.IbcKeeper = ibckeeper.NewKeeper(
 		app.cdc,
 		app.keys[ibchost.StoreKey],
 		app.GetSubspace(ibchost.ModuleName),
-		app.stakingKeeper,
+		app.StakingKeeper,
 		app.upgradeKeeper,
 		scopedIBCKeeper,
 	)
@@ -350,48 +351,48 @@ func New(
 	// register the proposal types
 	govRouter := govtypes.NewRouter()
 	govRouter.AddRoute(govtypes.RouterKey, govtypes.ProposalHandler).
-		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.paramsKeeper)).
-		AddRoute(distrtypes.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.distrKeeper)).
+		AddRoute(paramproposal.RouterKey, params.NewParamChangeProposalHandler(app.ParamsKeeper)).
+		AddRoute(distrtypes.RouterKey, distr.NewCommunityPoolSpendProposalHandler(app.DistrKeeper)).
 		AddRoute(upgradetypes.RouterKey, upgrade.NewSoftwareUpgradeProposalHandler(app.upgradeKeeper)).
-		AddRoute(ibchost.RouterKey, ibcclient.NewClientProposalHandler(app.ibcKeeper.ClientKeeper))
+		AddRoute(ibchost.RouterKey, ibcclient.NewClientProposalHandler(app.IbcKeeper.ClientKeeper))
 
-	app.govKeeper = govkeeper.NewKeeper(
+	app.GovKeeper = govkeeper.NewKeeper(
 		app.cdc,
 		app.keys[govtypes.StoreKey],
 		app.GetSubspace(govtypes.ModuleName),
-		app.accountKeeper,
-		app.bankKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
 		&stakingKeeper,
 		govRouter,
 	)
 
 	// Create Transfer Keepers
-	app.ibcTransferKeeper = ibctransferkeeper.NewKeeper(
+	app.IbcTransferKeeper = ibctransferkeeper.NewKeeper(
 		app.cdc,
 		app.keys[ibctransfertypes.StoreKey],
 		app.GetSubspace(ibctransfertypes.ModuleName),
-		app.ibcKeeper.ChannelKeeper,
-		&app.ibcKeeper.PortKeeper,
-		app.accountKeeper,
-		app.bankKeeper,
+		app.IbcKeeper.ChannelKeeper,
+		&app.IbcKeeper.PortKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
 		scopedTransferKeeper,
 	)
 
 	var (
 		evidenceRouter = evidencetypes.NewRouter()
 		ibcRouter      = ibcporttypes.NewRouter()
-		transferModule = ibctransfer.NewAppModule(app.ibcTransferKeeper)
+		transferModule = ibctransfer.NewAppModule(app.IbcTransferKeeper)
 	)
 
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
-	app.ibcKeeper.SetRouter(ibcRouter)
+	app.IbcKeeper.SetRouter(ibcRouter)
 
 	// Create evidence Keeper for to register the IBC light client misbehaviour evidence route
 	app.evidenceKeeper = *evidencekeeper.NewKeeper(
 		app.cdc,
 		app.keys[evidencetypes.StoreKey],
-		&app.stakingKeeper,
-		app.slashingKeeper,
+		&app.StakingKeeper,
+		app.SlashingKeeper,
 	)
 	app.evidenceKeeper.SetRouter(evidenceRouter)
 
@@ -399,18 +400,18 @@ func New(
 	wasmConfig, err := wasm.ReadWasmConfig(appOptions)
 	supportedFeatures := "iterator,staking,stargate"
 
-	app.wasmKeeper = wasmkeeper.NewKeeper(
+	app.WasmKeeper = wasmkeeper.NewKeeper(
 		app.cdc,
 		keys[wasmtypes.StoreKey],
 		app.GetSubspace(wasmtypes.ModuleName),
-		app.accountKeeper,
-		app.bankKeeper,
-		app.stakingKeeper,
-		app.distrKeeper,
-		app.ibcKeeper.ChannelKeeper,
-		&app.ibcKeeper.PortKeeper,
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		app.DistrKeeper,
+		app.IbcKeeper.ChannelKeeper,
+		&app.IbcKeeper.PortKeeper,
 		scopedWasmKeeper,
-		app.ibcTransferKeeper,
+		app.IbcTransferKeeper,
 		baseApp.MsgServiceRouter(),
 		app.GRPCQueryRouter(),
 		wasmDir,
@@ -429,23 +430,23 @@ func New(
 	// must be passed by reference here.
 
 	app.mm = module.NewManager(
-		genutil.NewAppModule(app.accountKeeper, app.stakingKeeper, app.BaseApp.DeliverTx, encoding.TxConfig),
-		auth.NewAppModule(app.cdc, app.accountKeeper, nil),
-		vesting.NewAppModule(app.accountKeeper, app.bankKeeper),
-		bank.NewAppModule(app.cdc, app.bankKeeper, app.accountKeeper),
+		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp.DeliverTx, encoding.TxConfig),
+		auth.NewAppModule(app.cdc, app.AccountKeeper, nil),
+		vesting.NewAppModule(app.AccountKeeper, app.BankKeeper),
+		bank.NewAppModule(app.cdc, app.BankKeeper, app.AccountKeeper),
 		capability.NewAppModule(app.cdc, *app.capabilityKeeper),
 		crisis.NewAppModule(&app.crisisKeeper, skipGenesisInvariants),
-		gov.NewAppModule(app.cdc, app.govKeeper, app.accountKeeper, app.bankKeeper),
-		mint.NewAppModule(app.cdc, app.mintKeeper, app.accountKeeper),
-		slashing.NewAppModule(app.cdc, app.slashingKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
-		distr.NewAppModule(app.cdc, app.distrKeeper, app.accountKeeper, app.bankKeeper, app.stakingKeeper),
-		staking.NewAppModule(app.cdc, app.stakingKeeper, app.accountKeeper, app.bankKeeper),
+		gov.NewAppModule(app.cdc, app.GovKeeper, app.AccountKeeper, app.BankKeeper),
+		mint.NewAppModule(app.cdc, app.MintKeeper, app.AccountKeeper),
+		slashing.NewAppModule(app.cdc, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper),
+		distr.NewAppModule(app.cdc, app.DistrKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper),
+		staking.NewAppModule(app.cdc, app.StakingKeeper, app.AccountKeeper, app.BankKeeper),
 		upgrade.NewAppModule(app.upgradeKeeper),
 		evidence.NewAppModule(app.evidenceKeeper),
-		ibc.NewAppModule(app.ibcKeeper),
-		params.NewAppModule(app.paramsKeeper),
+		ibc.NewAppModule(app.IbcKeeper),
+		params.NewAppModule(app.ParamsKeeper),
 		transferModule,
-		wasm.NewAppModule(app.cdc, &app.wasmKeeper, app.stakingKeeper),
+		wasm.NewAppModule(app.cdc, &app.WasmKeeper, app.StakingKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -505,9 +506,9 @@ func New(
 	app.SetBeginBlocker(app.BeginBlocker)
 	anteHandler, err := ante.NewAnteHandler(
 		ante.HandlerOptions{
-			AccountKeeper:   app.accountKeeper,
-			BankKeeper:      app.bankKeeper,
-			FeegrantKeeper:  app.freegrantKeeper,
+			AccountKeeper:   app.AccountKeeper,
+			BankKeeper:      app.BankKeeper,
+			FeegrantKeeper:  app.FreegrantKeeper,
 			SignModeHandler: encoding.TxConfig.SignModeHandler(),
 			SigGasConsumer:  ante.DefaultSigVerificationGasConsumer,
 		},
@@ -626,7 +627,7 @@ func (a *App) GetMemKey(storeKey string) *sdk.MemoryStoreKey {
 //
 // NOTE: This is solely to be used for testing purposes.
 func (a *App) GetSubspace(moduleName string) paramstypes.Subspace {
-	subspace, _ := a.paramsKeeper.GetSubspace(moduleName)
+	subspace, _ := a.ParamsKeeper.GetSubspace(moduleName)
 	return subspace
 }
 
